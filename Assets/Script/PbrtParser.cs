@@ -26,9 +26,9 @@ public class PbrtParser
         Debug.Log("PBRT parsing started...");
         ParseFile(filePath);
 
-        long finalMeshCount = _scene.Shapes.LongCount(s => s is PbrtTriangleMesh);
+        long finalMeshCount = _scene.shapes.LongCount(s => s is PbrtTriangleMesh);
         Debug.Log($"PBRT parsing finished. Found {finalMeshCount} triangle meshes.");
-
+        
         return _scene;
     }
 
@@ -75,14 +75,14 @@ public class PbrtParser
                     break;
 
                 case "Shape": tokenizer.GetNextToken(); ParseShape(tokenizer); break;
-                case "AreaLightSource": tokenizer.GetNextToken(); _pendingLight = new PbrtLight { Type = tokenizer.GetNextToken().Trim('"'), Parameters = ParseParameters(tokenizer) }; break;
+                case "AreaLightSource": tokenizer.GetNextToken(); _pendingLight = new PbrtLight { type = tokenizer.GetNextToken().Trim('"'), parameters = ParseParameters(tokenizer) }; break;
 
                 // --- FIX: Correctly parse Material directives ---
                 case "Material":
                     tokenizer.GetNextToken(); // Consume "Material"
                     string matType = tokenizer.GetNextToken().Trim('"');
                     PbrtParams matParams = ParseParameters(tokenizer);
-                    var newMaterial = new PbrtMaterial { Type = matType, Parameters = matParams };
+                    var newMaterial = new PbrtMaterial { type = matType, parameters = matParams };
                     // Replace the current material on top of the stack
                     if (_materialStack.Count > 0) _materialStack.Pop();
                     _materialStack.Push(newMaterial);
@@ -110,22 +110,22 @@ public class PbrtParser
             case "cylinder": shape = new PbrtCylinder(); break;
             case "trianglemesh":
                 var mesh = new PbrtTriangleMesh();
-                if (parameters.TryGetValue("indices", out object indicesObj)) mesh.Indices = (int[])indicesObj;
-                if (parameters.TryGetValue("P", out object pObj)) mesh.Vertices = (Vector3[])pObj;
-                if (parameters.TryGetValue("N", out object nObj)) mesh.Normals = (Vector3[])nObj;
-                if (mesh.Vertices != null && mesh.Indices != null) shape = mesh;
+                if (parameters.TryGetValue("indices", out object indicesObj)) mesh.indices = (int[])indicesObj;
+                if (parameters.TryGetValue("P", out object pObj)) mesh.vertices = (Vector3[])pObj;
+                if (parameters.TryGetValue("N", out object nObj)) mesh.normals = (Vector3[])nObj;
+                if (mesh.vertices != null && mesh.indices != null) shape = mesh;
                 break;
         }
 
         if (shape != null)
         {
-            shape.Parameters = parameters;
-            shape.ObjectToWorld = _transformStack.Peek();
-            shape.AttachedLight = _pendingLight;
+            shape.parameters = parameters;
+            shape.objectToWorld = _transformStack.Peek();
+            shape.attachedLight = _pendingLight;
             // --- NEW: Assign the current material from the top of the stack ---
-            shape.Material = _materialStack.Peek();
+            shape.material = _materialStack.Peek();
             _pendingLight = null;
-            _scene.Shapes.Add(shape);
+            _scene.shapes.Add(shape);
         }
     }
 
@@ -186,17 +186,28 @@ public class PbrtParser
     private float ReadFloat(PbrtTokenizer t) => float.Parse(t.GetNextToken(), CultureInfo.InvariantCulture);
     private int ReadInt(PbrtTokenizer t) => int.Parse(t.GetNextToken(), CultureInfo.InvariantCulture);
 
-    private void ParseCamera(PbrtTokenizer t) { _scene.Camera = new PbrtCamera { Type = t.GetNextToken().Trim('"'), Parameters = ParseParameters(t) }; }
-    private void ParseFilm(PbrtTokenizer t) { _scene.Film = new PbrtFilm { Type = t.GetNextToken().Trim('"'), Parameters = ParseParameters(t) }; }
-    private void ParseSampler(PbrtTokenizer t) { _scene.Sampler = new PbrtSampler { Type = t.GetNextToken().Trim('"'), Parameters = ParseParameters(t) }; }
+    private void ParseCamera(PbrtTokenizer t)
+    {
+        // 1. 確保相機物件存在，如果不存在才建立
+        if (_scene.camera == null)
+        {
+            _scene.camera = new PbrtCamera();
+        }
+
+        // 2. 在現有的相機物件上設定屬性，而不是建立新物件
+        _scene.camera.type = t.GetNextToken().Trim('"');
+        _scene.camera.parameters = ParseParameters(t);
+    }
+    private void ParseFilm(PbrtTokenizer t) { _scene.film = new PbrtFilm { type = t.GetNextToken().Trim('"'), parameters = ParseParameters(t) }; }
+    private void ParseSampler(PbrtTokenizer t) { _scene.sampler = new PbrtSampler { type = t.GetNextToken().Trim('"'), parameters = ParseParameters(t) }; }
 
     private void ParseLookAt(PbrtTokenizer t)
     {
         Vector3 eye = new Vector3(ReadFloat(t), ReadFloat(t), ReadFloat(t));
         Vector3 lookAt = new Vector3(ReadFloat(t), ReadFloat(t), ReadFloat(t));
         Vector3 up = new Vector3(ReadFloat(t), ReadFloat(t), ReadFloat(t));
-        if (_scene.Camera == null) _scene.Camera = new PbrtCamera();
-        _scene.Camera.WorldToCameraMatrix = Matrix4x4.LookAt(eye, lookAt, up);
+        if (_scene.camera == null) _scene.camera = new PbrtCamera();
+        _scene.camera.LookAt(eye, lookAt, up);
     }
 
     private void ApplyTransform(Matrix4x4 t)
