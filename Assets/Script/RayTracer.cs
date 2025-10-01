@@ -1,3 +1,4 @@
+using System.Linq;
 using UnityEngine;
 
 [RequireComponent(typeof(Camera))]
@@ -37,6 +38,21 @@ public class RayTracer : MonoBehaviour
         // 設定 Quad 的本地位置和縮放
         displayQuad.transform.localPosition = new Vector3(0, 0, quadPositionZ);
         displayQuad.transform.localScale = new Vector3(quadWidth, quadHeight, 1f);
+
+        // PBRT 檔案路徑，相對於專案根目錄
+        string sceneFileName = "sibenik-whitted.pbrt";
+        string sceneFilePath = System.IO.Path.Combine(Application.streamingAssetsPath, sceneFileName);
+
+        if (System.IO.File.Exists(sceneFilePath))
+        {
+            PbrtParser parser = new PbrtParser();
+            PbrtScene scene = parser.Parse(sceneFilePath);
+            LogSceneSummary(scene);
+        }
+        else
+        {
+            UnityEngine.Debug.LogError($"PBRT 場景檔案未找到: {sceneFilePath}");
+        }
     }
 
     void Update()
@@ -60,5 +76,29 @@ public class RayTracer : MonoBehaviour
         }
         // 將所有像素顏色變更應用到 GPU
         _targetTexture.Apply();
+    }
+
+    private void LogSceneSummary(PbrtScene scene)
+    {
+        if (scene == null) return;
+        Debug.Log("--- PBRT Scene Summary ---");
+
+        int sphereCount = scene.Shapes.Count(s => s is PbrtSphere);
+        int cylinderCount = scene.Shapes.Count(s => s is PbrtCylinder);
+        int meshCount = scene.Shapes.Count(s => s is PbrtTriangleMesh);
+
+        Debug.Log($"Total Shapes: {scene.Shapes.Count}");
+        Debug.Log($"  - Spheres: {sphereCount}");
+        Debug.Log($"  - Cylinders: {cylinderCount}");
+        Debug.Log($"  - Triangle Meshes: {meshCount}");
+
+        // --- NEW: Log material info for the first few shapes to verify ---
+        Debug.Log("--- Material Verification ---");
+        for (int i = 0; i < Mathf.Min(scene.Shapes.Count, 5); i++)
+        {
+            var shape = scene.Shapes[i];
+            string materialInfo = shape.Material != null ? shape.Material.ToString() : "No Material";
+            Debug.Log($"Shape {i} ({shape.GetType().Name}) -> {materialInfo}");
+        }
     }
 }
