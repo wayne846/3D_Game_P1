@@ -46,18 +46,11 @@ public class PbrtCamera
     float _aspectRatio;
     float _tanHalfFovY;
 
-    public static Vector3 PbrtToUnity(Vector3 pbrtVector)
-    {
-        return new Vector3(pbrtVector.y, pbrtVector.z, pbrtVector.x);
-        //return pbrtVector;
-    }
-
     public void LookAt(Vector3 eye, Vector3 lookAt, Vector3 up)
     {
-        
-        _eye = PbrtToUnity(eye);
-        _forward = (PbrtToUnity(lookAt) - PbrtToUnity(eye)).normalized;
-        _right = Vector3.Cross(PbrtToUnity(up), _forward).normalized;
+        _eye = eye;
+        _forward = (lookAt - eye).normalized;
+        _right = Vector3.Cross(up, _forward).normalized;
         _up = Vector3.Cross(_forward, _right);
     }
 
@@ -122,6 +115,10 @@ public class PbrtCamera
 
     public float GetFov()
     {
+        if (parameters.TryGetValue("fov", out object fov))
+        {
+            return (float)fov;
+        }
         return _fov;
     }
 }

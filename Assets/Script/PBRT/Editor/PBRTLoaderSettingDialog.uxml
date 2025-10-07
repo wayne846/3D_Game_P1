@@ -1,0 +1,11 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:Label tabindex="-1" text="Select the .pbrt file you want to load and press &quot;Confirm&quot;." parse-escape-sequences="true" display-tooltip-when-elided="true" style="margin-left: 4px; margin-top: 10px; margin-bottom: 10px;" />
+    <ui:VisualElement style="flex-grow: 1; flex-direction: row; height: 20px; width: auto; align-items: stretch; align-self: stretch; justify-content: flex-start; cursor: initial;">
+        <ui:TextField picking-mode="Ignore" label="PBRT File Path" readonly="true" name="textfield_pbrtfile" style="height: 20px; width: 65%;" />
+        <ui:Button text="Select" parse-escape-sequences="true" display-tooltip-when-elided="true" name="button_selectpbrtfile" style="height: 20px; width: 30%;" />
+    </ui:VisualElement>
+    <ui:GroupBox text="Input Axis" style="border-top-width: 2px; border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px; border-left-color: rgb(111, 111, 111); border-right-color: rgb(111, 111, 111); border-top-color: rgb(111, 111, 111); border-bottom-color: rgb(111, 111, 111); border-top-left-radius: 3px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; border-bottom-left-radius: 3px;">
+        <ui:Label tabindex="-1" text="PBRT中 -&gt; x向前、y向右、z向上&#10;Unity中 -&gt; z向前、x向右、y向上&#10;（兩者都是左手座標系）" parse-escape-sequences="true" display-tooltip-when-elided="true" />
+    </ui:GroupBox>
+    <ui:Button text="Confirm" parse-escape-sequences="true" display-tooltip-when-elided="true" name="button_confirm" style="width: 30%; align-self: flex-end; height: 30px; margin-top: 30px;" />
+</ui:UXML>

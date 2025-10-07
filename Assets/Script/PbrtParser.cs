@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using UnityEngine;
 
-// ³q¥Î°Ñ¼Æ¦r¨å
+// é€šç”¨åƒæ•¸å­—å…¸
 using PbrtParams = System.Collections.Generic.Dictionary<string, object>;
 public class PbrtParser
 {
@@ -19,7 +19,9 @@ public class PbrtParser
     public PbrtScene Parse(string filePath)
     {
         _baseDirectory = Path.GetDirectoryName(filePath);
-        _transformStack.Push(Matrix4x4.identity);
+        // è¨­å®šé è¨­çš„çŸ©é™£ï¼Œå°‡ xyz è½‰æˆ zxy
+        Matrix4x4 pbrt2unity = new Matrix4x4(new(0,0,1,0), new(1,0,0,0), new(0,1,0,0), new(0,0,0,1));
+        _transformStack.Push(pbrt2unity);
         // --- NEW: Initialize material stack with a null (default) material ---
         _materialStack.Push(null);
 
@@ -89,9 +91,13 @@ public class PbrtParser
                     break;
 
                 case "Include": tokenizer.GetNextToken(); string includePath = Path.Combine(_baseDirectory, tokenizer.GetNextToken().Trim('"')); ParseFile(includePath); break;
+
+                // çŸ©é™£
                 case "Translate": tokenizer.GetNextToken(); ParseTranslate(tokenizer); break;
                 case "Rotate": tokenizer.GetNextToken(); ParseRotate(tokenizer); break;
                 case "Scale": tokenizer.GetNextToken(); ParseScale(tokenizer); break;
+                case "ConcatTransform": tokenizer.GetNextToken(); ParseConcatTransform(tokenizer); break;
+
                 case "Accelerator": case "PixelFilter": case "Integrator": tokenizer.GetNextToken(); tokenizer.GetNextToken(); ParseParameters(tokenizer); break;
                 default: tokenizer.GetNextToken(); break;
             }
@@ -149,7 +155,7 @@ public class PbrtParser
                 while (tokenizer.PeekNextToken() != "]") ints.Add(ReadInt(tokenizer));
                 value = ints.ToArray();
             }
-            else if ((paramType == "point" && paramName == "P") || (paramType == "normal" && paramName == "N"))
+            else if (((paramType == "point" || paramType == "point3") && paramName == "P") || (paramType == "normal" && paramName == "N"))
             {
                 var vectors = new List<Vector3>();
                 while (tokenizer.PeekNextToken() != "]") vectors.Add(new Vector3(ReadFloat(tokenizer), ReadFloat(tokenizer), ReadFloat(tokenizer)));
@@ -188,13 +194,13 @@ public class PbrtParser
 
     private void ParseCamera(PbrtTokenizer t)
     {
-        // 1. ½T«O¬Û¾÷ª«¥ó¦s¦b¡A¦pªG¤£¦s¦b¤~«Ø¥ß
+        // 1. ç¢ºä¿ç›¸æ©Ÿç‰©ä»¶å­˜åœ¨ï¼Œå¦‚æœä¸å­˜åœ¨æ‰å»ºç«‹
         if (_scene.camera == null)
         {
             _scene.camera = new PbrtCamera();
         }
 
-        // 2. ¦b²{¦³ªº¬Û¾÷ª«¥ó¤W³]©wÄİ©Ê¡A¦Ó¤£¬O«Ø¥ß·sª«¥ó
+        // 2. åœ¨ç¾æœ‰çš„ç›¸æ©Ÿç‰©ä»¶ä¸Šè¨­å®šå±¬æ€§ï¼Œè€Œä¸æ˜¯å»ºç«‹æ–°ç‰©ä»¶
         _scene.camera.type = t.GetNextToken().Trim('"');
         _scene.camera.parameters = ParseParameters(t);
     }
@@ -203,9 +209,12 @@ public class PbrtParser
 
     private void ParseLookAt(PbrtTokenizer t)
     {
-        Vector3 eye = new Vector3(ReadFloat(t), ReadFloat(t), ReadFloat(t));
-        Vector3 lookAt = new Vector3(ReadFloat(t), ReadFloat(t), ReadFloat(t));
-        Vector3 up = new Vector3(ReadFloat(t), ReadFloat(t), ReadFloat(t));
+        Matrix4x4 M = _transformStack.Peek();
+        
+        Vector3 eye    = M                   * new Vector3(ReadFloat(t), ReadFloat(t), ReadFloat(t));
+        Vector3 lookAt = M                   * new Vector3(ReadFloat(t), ReadFloat(t), ReadFloat(t));
+        Vector3 up     = M.ExtractRotation() * new Vector3(ReadFloat(t), ReadFloat(t), ReadFloat(t));
+
         if (_scene.camera == null) _scene.camera = new PbrtCamera();
         _scene.camera.LookAt(eye, lookAt, up);
     }
@@ -223,5 +232,30 @@ public class PbrtParser
         float angle = ReadFloat(t);
         Vector3 axis = new Vector3(ReadFloat(t), ReadFloat(t), ReadFloat(t));
         ApplyTransform(Matrix4x4.Rotate(Quaternion.AngleAxis(angle, axis)));
+    }
+
+    private void ParseConcatTransform(PbrtTokenizer t)
+    {
+        Matrix4x4 M = new Matrix4x4();
+        t.GetNextToken(); // consume [
+        M.m00 = ReadFloat(t);
+        M.m01 = ReadFloat(t);
+        M.m02 = ReadFloat(t);
+        M.m03 = ReadFloat(t);
+        M.m10 = ReadFloat(t);
+        M.m11 = ReadFloat(t);
+        M.m12 = ReadFloat(t);
+        M.m13 = ReadFloat(t);
+        M.m20 = ReadFloat(t);
+        M.m21 = ReadFloat(t);
+        M.m22 = ReadFloat(t);
+        M.m23 = ReadFloat(t);
+        M.m30 = ReadFloat(t);
+        M.m31 = ReadFloat(t);
+        M.m32 = ReadFloat(t);
+        M.m33 = ReadFloat(t);
+        t.GetNextToken(); // consume ]
+
+        ApplyTransform(M);
     }
 }
