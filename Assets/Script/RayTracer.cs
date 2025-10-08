@@ -38,15 +38,17 @@ public class RayTracer : MonoBehaviour
         {
             for (int x = 0; x < _targetTexture.width; x++)
             {
-                // TODO: 您的光線追蹤核心邏輯
-                // Color pixelColor = YourRayTracingLogic(x, y);
-                Color pixelColor = new Color((float)x / _targetTexture.width, (float)y / _targetTexture.height, 0); // 用一個漸層色作為範例
+                Color pixelColor = Color.black;
                 _targetTexture.SetPixel(x, y, pixelColor);
                 PbrtRay ray = scene.camera.GenerateRay(x, y);
-                if (y == 0 && x == 0)
+                PbrtHitInfo hitInfo;
+                if (scene.intersect(ray, new Interval(0, float.PositiveInfinity), out hitInfo))
                 {
-                    Debug.DrawRay(ray.origin, ray.dir, Color.black, 50);
+                    Vector3 color = (hitInfo.normal + Vector3.one) / 2.0f;
+                    pixelColor = new Color(color.x, color.y, color.z);
                 }
+                
+                _targetTexture.SetPixel(x, y, pixelColor);
             }
         }
         // 將所有像素顏色變更應用到 GPU

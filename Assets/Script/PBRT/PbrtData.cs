@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEngine;
 
 // 通用參數字典
@@ -17,12 +18,45 @@ public class PbrtScene
         Vector2Int resolution = film.GetResolution();
         camera.Init(resolution.x, resolution.y);
     }
+
+    public bool intersect(PbrtRay ray, Interval rayInterval, out PbrtHitInfo hitInfo)
+    {
+        bool isHit = false;
+        float closest = rayInterval.max;
+
+        PbrtHitInfo tempHitInfo = new PbrtHitInfo();
+        PbrtHitInfo resultHitInfo = new PbrtHitInfo();
+        tempHitInfo.position = Vector3.one;
+        tempHitInfo.normal = Vector3.forward;
+        tempHitInfo.distance = 0;
+
+        foreach (PbrtShape shape in shapes)
+        {
+            if (shape.intersect(ray, new Interval(rayInterval.min, closest), out tempHitInfo))
+            {
+                isHit = true;
+                closest = tempHitInfo.distance;
+                resultHitInfo = tempHitInfo;
+            }
+        }
+
+        hitInfo = isHit ? resultHitInfo : tempHitInfo;
+
+        return isHit;
+    }
 }
 
-public class PbrtRay
+public struct PbrtRay
 {
     public Vector3 origin;
     public Vector3 dir;
+}
+
+public struct PbrtHitInfo
+{
+    public Vector3 position;
+    public Vector3 normal;
+    public float distance;
 }
 
 public class PbrtCamera
@@ -173,9 +207,60 @@ public abstract class PbrtShape
     // --- NEW: Property to hold the shape's material ---
     public PbrtMaterial material { get; set; }
     public PbrtParams parameters { get; set; } = new PbrtParams();
+
+    public abstract bool intersect(PbrtRay ray, Interval rayInterval, out PbrtHitInfo hitInfo);
 }
-public class PbrtSphere : PbrtShape { }
-public class PbrtCylinder : PbrtShape { }
+public class PbrtSphere : PbrtShape
+{
+    public override bool intersect(PbrtRay ray, Interval rayInterval, out PbrtHitInfo hitInfo)
+    {
+        Vector3 center = objectToWorld.ExtractPosition();
+        float radius = (float)parameters["radius"];
+
+        bool isHit = true;
+
+        Vector3 oc = center - ray.origin;
+        float a = ray.dir.sqrMagnitude;
+        float h = Vector3.Dot(ray.dir, oc);
+        float c = oc.sqrMagnitude - radius * radius;
+
+        float discriminant = h * h - a * c;
+
+        if (discriminant < 0)
+        {
+            isHit = false;
+        }
+
+        float sqrtd = Mathf.Sqrt(discriminant);
+
+        // Find the nearest root that lies in the acceptable range.
+        float root = (h - sqrtd) / a;
+        if (!rayInterval.Surrounds(root))
+        {
+            root = (h + sqrtd) / a;
+            if (!rayInterval.Surrounds(root))
+            {
+                isHit = false;
+            }
+        }
+
+        hitInfo.distance = root;
+        hitInfo.position = ray.origin + ray.dir.normalized * hitInfo.distance;
+        hitInfo.normal = (hitInfo.position - center) / radius;
+
+        return isHit;
+    }
+}
+public class PbrtCylinder : PbrtShape 
+{
+    public override bool intersect(PbrtRay ray, Interval rayInterval, out PbrtHitInfo hitInfo)
+    {
+        hitInfo.distance = 0;
+        hitInfo.position = Vector3.zero;
+        hitInfo.normal = Vector3.forward;
+        return false;
+    }
+}
 
 // 更新 PbrtTriangleMesh 以包含具體幾何數據
 public class PbrtTriangleMesh : PbrtShape
@@ -183,4 +268,12 @@ public class PbrtTriangleMesh : PbrtShape
     public int[] indices { get; set; }
     public Vector3[] vertices { get; set; }
     public Vector3[] normals { get; set; } // 可選
+
+    public override bool intersect(PbrtRay ray, Interval rayInterval, out PbrtHitInfo hitInfo)
+    {
+        hitInfo.distance = 0;
+        hitInfo.position = Vector3.zero;
+        hitInfo.normal = Vector3.forward;
+        return false;
+    }
 }
