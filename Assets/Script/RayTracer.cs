@@ -1,5 +1,6 @@
 using System.Linq;
 using UnityEngine;
+using System.Collections;
 
 [RequireComponent(typeof(Camera))]
 public class RayTracer : MonoBehaviour
@@ -23,15 +24,18 @@ public class RayTracer : MonoBehaviour
 
         _camera.gameObject.transform.position = scene.camera.GetEyePosition();
         _camera.gameObject.transform.LookAt(scene.camera.GetEyePosition() + scene.camera.GetForward(), scene.camera.GetUp());
+
+        StartCoroutine(RenderSceneOnCPU());
     }
 
     void Update()
     {
         // 這裡將是您執行光線追蹤計算的地方
-        RenderSceneOnCPU();
+        //RenderSceneOnCPU();
     }
 
-    void RenderSceneOnCPU()
+
+    IEnumerator RenderSceneOnCPU()
     {
         // 迭代每個像素
         for (int y = 0; y < _targetTexture.height; y++)
@@ -47,9 +51,12 @@ public class RayTracer : MonoBehaviour
                     Vector3 color = (hitInfo.normal + Vector3.one) / 2.0f;
                     pixelColor = new Color(color.x, color.y, color.z);
                 }
-                
+                //Debug.Log($"nor: {hitInfo.normal} pos: {hitInfo.position} dis: {hitInfo.distance}");
                 _targetTexture.SetPixel(x, y, pixelColor);
             }
+
+            Debug.Log($"Rendering...({(y + 1) * _targetTexture.width} / {_targetTexture.height * _targetTexture.width})");
+            yield return null;
         }
         // 將所有像素顏色變更應用到 GPU
         _targetTexture.Apply();

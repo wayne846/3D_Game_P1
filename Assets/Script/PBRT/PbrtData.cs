@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEngine;
+using static UnityEngine.UI.Image;
+
 
 // 通用參數字典
 using PbrtParams = System.Collections.Generic.Dictionary<string, object>;
@@ -26,8 +28,8 @@ public class PbrtScene
 
         PbrtHitInfo tempHitInfo = new PbrtHitInfo();
         PbrtHitInfo resultHitInfo = new PbrtHitInfo();
-        tempHitInfo.position = Vector3.one;
-        tempHitInfo.normal = Vector3.forward;
+        tempHitInfo.position = Vector3.zero;
+        tempHitInfo.normal = Vector3.zero;
         tempHitInfo.distance = 0;
 
         foreach (PbrtShape shape in shapes)
@@ -257,7 +259,7 @@ public class PbrtCylinder : PbrtShape
     {
         hitInfo.distance = 0;
         hitInfo.position = Vector3.zero;
-        hitInfo.normal = Vector3.forward;
+        hitInfo.normal = Vector3.zero;
         return false;
     }
 }
@@ -271,9 +273,110 @@ public class PbrtTriangleMesh : PbrtShape
 
     public override bool intersect(PbrtRay ray, Interval rayInterval, out PbrtHitInfo hitInfo)
     {
+        bool isHit = false;
+
+        // 將ray轉到物體的坐標系
+        Matrix4x4 worldToObject = objectToWorld.inverse;
+        PbrtRay objectRay = new PbrtRay
+        {
+            origin = worldToObject.MultiplyPoint3x4(ray.origin),
+            dir = worldToObject.MultiplyVector(ray.dir)
+        };
+
         hitInfo.distance = 0;
         hitInfo.position = Vector3.zero;
-        hitInfo.normal = Vector3.forward;
-        return false;
+        hitInfo.normal = Vector3.zero;
+
+        PbrtHitInfo tempHitInfo;
+        float closest = rayInterval.max;
+
+        for (int i = 0; i < indices.Length; i += 3)
+        {
+            Vector3[] point = { vertices[indices[i]], vertices[indices[i + 1]], vertices[indices[i + 2]] };
+            Vector3[] normal = { normals[indices[i]], normals[indices[i + 1]], normals[indices[i + 2]] };
+
+            if(intersectTriangle(objectRay, new Interval(rayInterval.min, closest), point, normal, out tempHitInfo))
+            {
+                isHit = true;
+                closest = tempHitInfo.distance;
+                hitInfo = tempHitInfo;
+            }
+        }
+
+        if (isHit)
+        {
+            //將交點資訊轉換回世界座標系
+
+            // 轉換位置
+            hitInfo.position = objectToWorld.MultiplyPoint3x4(hitInfo.position);
+
+            // 轉換法向量
+            Matrix4x4 normalTransform = worldToObject.transpose;
+            hitInfo.normal = Vector3.Normalize(normalTransform.MultiplyVector(hitInfo.normal));
+
+            // 重新計算世界座標下的距離
+            // 因為縮放會影響 t 值的尺度，最穩健的方式是直接計算世界座標中的距離
+            hitInfo.distance = (hitInfo.position - ray.origin).magnitude;
+
+            // 最後再檢查一次距離是否真的在區間內 (可選，但更穩健)
+            if (!rayInterval.Contains(hitInfo.distance))
+            {
+                return false;
+            }
+        }
+
+        return isHit;
+    }
+
+    bool intersectTriangle(PbrtRay ray, Interval rayInterval, Vector3[] point, Vector3[] normal, out PbrtHitInfo hitInfo)
+    {
+        hitInfo.position = Vector3.zero;
+        hitInfo.normal = Vector3.zero;
+        hitInfo.distance = 0;
+
+        Vector3 edge1 = point[1] - point[0];
+        Vector3 edge2 = point[2] - point[0];
+
+        Vector3 pvec = Vector3.Cross(ray.dir, edge2);
+        float det = Vector3.Dot(edge1, pvec);
+
+        float epsilon = 1e-8f;
+        if (Mathf.Abs(det) < epsilon)
+        {
+            return false;
+        }
+
+        float invDet = 1.0f / det;
+        Vector3 tvec = ray.origin - point[0];
+
+        // 計算重心座標 u
+        float u = Vector3.Dot(tvec, pvec) * invDet;
+        if (u < 0.0f || u > 1.0f)
+        {
+            return false;
+        }
+
+        // 計算重心座標 v
+        Vector3 qvec = Vector3.Cross(tvec, edge1);
+        float v = Vector3.Dot(ray.dir, qvec) * invDet;
+        if (v < 0.0f || u + v > 1.0f)
+        {
+            return false;
+        }
+
+        float t = Vector3.Dot(edge2, qvec) * invDet;
+
+        if (!rayInterval.Contains(t))
+        {
+            return false;
+        }
+
+
+        float w = 1.0f - u - v;
+        hitInfo.position = ray.origin + ray.dir * t;
+        hitInfo.distance = t;
+        hitInfo.normal = Vector3.Normalize(w * normal[0] + u * normal[1] + v * normal[2]);
+
+        return true;
     }
 }
