@@ -30,6 +30,20 @@ class PBRTLoader
         // 擺上讀到的 Mesh
         foreach (var shape in scene.shapes)
         {
+            // 建立 Material
+            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            if (shape.material != null) 
+            {
+                if (shape.material.Kd.GetType() == typeof(Texture2D))
+                    mat.SetTexture("_BaseMap", (Texture2D)shape.material.Kd);
+                else
+                {
+                    Vector3 Kd = (Vector3)shape.material.Kd;
+                    mat.SetColor("_BaseColor", new Color(Kd.x, Kd.y, Kd.z, 1));
+                }
+                mat.name = "Ks = " + shape.material.Ks.ToString() + "; Kt = " + shape.material.Kt.ToString();
+            }
+
             switch (shape)
             {
                 case PbrtTriangleMesh T:
@@ -42,11 +56,13 @@ class PBRTLoader
                     {
                         vertices = T.vertices,
                         normals = T.normals,
-                        triangles = T.indices
+                        triangles = T.indices,
+                        uv = T.uvs
                     };
                     NewMesh.AddComponent<MeshFilter>();
                     NewMesh.GetComponent<MeshFilter>().mesh = mesh;
                     NewMesh.AddComponent<MeshRenderer>();
+                    NewMesh.GetComponent<MeshRenderer>().material = mat;
                     Undo.RegisterCreatedObjectUndo(NewMesh, "載入PBRT");
                     break;
 

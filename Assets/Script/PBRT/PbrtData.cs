@@ -13,6 +13,7 @@ public class PbrtScene
     public PbrtFilm film { get; set; }
     public PbrtSampler sampler { get; set; }
     public List<PbrtShape> shapes { get; } = new List<PbrtShape>();
+    public Dictionary<string, Texture2D> KnownTexture {  get; } = new Dictionary<string, Texture2D>();
 
     public void Init()
     {
@@ -195,6 +196,9 @@ public class PbrtMaterial
 {
     public string type { get; set; } // e.g., "matte"
     public PbrtParams parameters { get; set; } = new PbrtParams();
+    public object Kd  { get; set; }
+    public Vector3 Ks { get; set; }
+    public Vector3 Kt { get; set; }
 
     public override string ToString()
     {
@@ -270,6 +274,7 @@ public class PbrtTriangleMesh : PbrtShape
     public int[] indices { get; set; }
     public Vector3[] vertices { get; set; }
     public Vector3[] normals { get; set; } // 可選
+    public Vector2[] uvs { get; set; } // 可選
 
     public override bool intersect(PbrtRay ray, Interval rayInterval, out PbrtHitInfo hitInfo)
     {

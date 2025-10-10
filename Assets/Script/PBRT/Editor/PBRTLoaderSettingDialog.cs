@@ -44,7 +44,7 @@ public class PBRTLoaderSettingDialog : EditorWindow
 
     private void OnSelectFileClicked(ClickEvent evt)
     {
-        string path = EditorUtility.OpenFilePanelWithFilters("PBRT to load", Application.dataPath, new string[] { "PBRT scene file", "pbrt" });
+        string path = EditorUtility.OpenFilePanelWithFilters("PBRT to load", Application.dataPath + "/StreamingAssets", new string[] { "PBRT scene file", "pbrt" });
         if (path.Length > 0)
             rootVisualElement.Q<TextField>("textfield_pbrtfile").value = path;
     }

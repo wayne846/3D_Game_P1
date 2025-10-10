@@ -82,15 +82,8 @@ public class PbrtParser
                 case "AreaLightSource": tokenizer.GetNextToken(); _pendingLight = new PbrtLight { type = tokenizer.GetNextToken().Trim('"'), parameters = ParseParameters(tokenizer) }; break;
 
                 // --- FIX: Correctly parse Material directives ---
-                case "Material":
-                    tokenizer.GetNextToken(); // Consume "Material"
-                    string matType = tokenizer.GetNextToken().Trim('"');
-                    PbrtParams matParams = ParseParameters(tokenizer);
-                    var newMaterial = new PbrtMaterial { type = matType, parameters = matParams };
-                    // Replace the current material on top of the stack
-                    if (_materialStack.Count > 0) _materialStack.Pop();
-                    _materialStack.Push(newMaterial);
-                    break;
+                case "Material":tokenizer.GetNextToken(); ParseMaterial(tokenizer); break;
+                case "Texture": tokenizer.GetNextToken(); ParseTexture(tokenizer); break;
 
                 case "Include": tokenizer.GetNextToken(); string includePath = Path.Combine(_baseDirectory, tokenizer.GetNextToken().Trim('"')); ParseFile(includePath); break;
 
@@ -121,6 +114,7 @@ public class PbrtParser
                 if (parameters.TryGetValue("indices", out object indicesObj)) mesh.indices = (int[])indicesObj;
                 if (parameters.TryGetValue("P", out object pObj)) mesh.vertices = (Vector3[])pObj;
                 if (parameters.TryGetValue("N", out object nObj)) mesh.normals = (Vector3[])nObj;
+                if (parameters.TryGetValue("st", out object st)) mesh.uvs = (Vector2[])st;
                 if (mesh.vertices != null && mesh.indices != null) shape = mesh;
                 break;
         }
@@ -194,8 +188,8 @@ public class PbrtParser
                         value = tokenizer.GetNextToken().Trim('"');
                         break;
                     case "texture":
-                        value = tokenizer.GetNextToken().Trim('"');
-                        Debug.LogWarning("Texture parameter: " + value);
+                        string tex_name = tokenizer.GetNextToken().Trim('"');
+                        value = _scene.KnownTexture[tex_name];
                         break;
                     default:
                         Assert.IsTrue(false, "Unknown Parameter Type: " + paramType);
@@ -283,5 +277,89 @@ public class PbrtParser
         t.GetNextToken(); // consume ]
 
         ApplyTransform(M);
+    }
+
+    private void ParseMaterial(PbrtTokenizer t)
+    {
+        string matType = t.GetNextToken().Trim('"');
+        PbrtParams matParams = ParseParameters(t);
+
+        // Kd
+        object Kd = new Vector3(1, 1, 1);
+        if (matParams.TryGetValue("Kd", out object D))
+        {
+            Kd = D;
+        }
+
+        // Ks
+        Vector3 Ks = new Vector3(0, 0, 0);
+        if (matParams.TryGetValue("Ks", out object S))
+        {
+            Ks = (Vector3)S;
+        }
+
+        // Kt
+        Vector3 Kt = new Vector3(0, 0, 0);
+        if (matParams.TryGetValue("Kt", out object T))
+        {
+            Kt = (Vector3)T;
+        }
+        else if (matParams.TryGetValue("opacity", out object O))
+        {
+            Kt = (Vector3)O;
+        }
+
+        if (matType == "mirror")
+        {
+            Kd = new Vector3(0, 0, 0);
+            Ks = new Vector3(1, 1, 1);
+            Kt = new Vector3(0, 0, 0);
+        }
+
+        var newMaterial = new PbrtMaterial { type = matType, parameters = matParams, Kd = Kd, Ks = Ks, Kt = Kt };
+
+        // Replace the current material on top of the stack
+        if (_materialStack.Count > 0) _materialStack.Pop();
+        _materialStack.Push(newMaterial);
+    }
+
+    private void ParseTexture(PbrtTokenizer t)
+    {
+        string tex_name = t.GetNextToken().Trim('"');
+        t.GetNextToken(); // color / spectrum
+        string tex_class = t.GetNextToken().Trim('"');
+        PbrtParams tex_params = ParseParameters(t);
+
+        Texture2D texture = new Texture2D(0, 0);
+
+        switch (tex_class)
+        {
+            case "imagemap":
+                string filename = (string)tex_params["filename"];
+                byte[] data = File.ReadAllBytes(Path.Combine(_baseDirectory, filename));
+                texture.LoadImage(data);
+                break;
+
+            case "scale":
+                Texture2D from = (Texture2D)tex_params["tex1"];
+                Vector3 scale = (Vector3)tex_params["tex2"];
+
+                // 對原始貼圖每一像素乘上 scale
+                texture.Reinitialize(from.width, from.height);
+                for (int i = 0; i < from.width; i++)
+                {
+                    for (int j = 0; j < from.height; j++)
+                    {
+                        Color oldColor = from.GetPixel(i, j);
+                        texture.SetPixel(i, j, new Color(oldColor.r * scale.x, oldColor.g * scale.y, oldColor.b * scale.z, oldColor.a));
+                    }
+                }
+                texture.Apply();
+                break;
+        }
+
+        Assert.IsTrue(texture.width * texture.height > 0);
+        if (_scene.KnownTexture.ContainsKey(tex_name) == false)
+            _scene.KnownTexture.Add(tex_name, texture);
     }
 }
