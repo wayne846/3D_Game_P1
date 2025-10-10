@@ -4,6 +4,8 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Assertions;
+
 
 // 通用參數字典
 using PbrtParams = System.Collections.Generic.Dictionary<string, object>;
@@ -143,22 +145,37 @@ public class PbrtParser
         {
             string paramDesc = tokenizer.GetNextToken().Trim('"');
             string[] parts = paramDesc.Split(' ');
+            Assert.IsTrue(parts.Length == 2, "Parameter must have type & name, but got    " + paramDesc);
             string paramType = parts[0];
-            string paramName = parts.Length > 1 ? parts[1] : "";
-
-            tokenizer.GetNextToken(); // Consume "["
+            string paramName = parts[1];
             object value = null;
+
+            bool WithLeftBracket = false;
+            if (tokenizer.PeekNextToken() == "[")
+            {
+                WithLeftBracket = true;
+                tokenizer.GetNextToken();
+            }
 
             if (paramType == "integer" && paramName == "indices")
             {
+                Assert.IsTrue(WithLeftBracket);
                 var ints = new List<int>();
                 while (tokenizer.PeekNextToken() != "]") ints.Add(ReadInt(tokenizer));
                 value = ints.ToArray();
             }
             else if (((paramType == "point" || paramType == "point3") && paramName == "P") || (paramType == "normal" && paramName == "N"))
             {
+                Assert.IsTrue(WithLeftBracket);
                 var vectors = new List<Vector3>();
                 while (tokenizer.PeekNextToken() != "]") vectors.Add(new Vector3(ReadFloat(tokenizer), ReadFloat(tokenizer), ReadFloat(tokenizer)));
+                value = vectors.ToArray();
+            }
+            else if ((paramType == "point2" || paramType == "float") && paramName == "st")
+            {
+                Assert.IsTrue(WithLeftBracket);
+                var vectors = new List<Vector2>();
+                while (tokenizer.PeekNextToken() != "]") vectors.Add(new Vector2(ReadFloat(tokenizer), ReadFloat(tokenizer)));
                 value = vectors.ToArray();
             }
             else
@@ -176,15 +193,24 @@ public class PbrtParser
                         // CHANGE: Trim quotes from string parameter value
                         value = tokenizer.GetNextToken().Trim('"');
                         break;
+                    case "texture":
+                        value = tokenizer.GetNextToken().Trim('"');
+                        Debug.LogWarning("Texture parameter: " + value);
+                        break;
                     default:
-                        while (tokenizer.HasMoreTokens() && tokenizer.PeekNextToken() != "]") tokenizer.GetNextToken();
+                        Assert.IsTrue(false, "Unknown Parameter Type: " + paramType);
                         break;
                 }
             }
 
-            if (tokenizer.HasMoreTokens() && tokenizer.PeekNextToken() == "]") tokenizer.GetNextToken();
+            if (WithLeftBracket)
+            {
+                Assert.IsTrue(tokenizer.PeekNextToken() == "]", "Unmatched [ for    " + paramDesc);
+                tokenizer.GetNextToken();
+            }
 
-            if (value != null && !string.IsNullOrEmpty(paramName)) parameters[paramName] = value;
+            Assert.IsTrue(value != null);
+            parameters[paramName] = value;
         }
         return parameters;
     }
