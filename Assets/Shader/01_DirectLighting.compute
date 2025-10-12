@@ -122,8 +122,6 @@ float3 Shade(ExtraHitInfo extraHitInfo)
 
             color += diffuse + specular;
         }
-        
-        color /= lightCount;
     }
 
     return color;
