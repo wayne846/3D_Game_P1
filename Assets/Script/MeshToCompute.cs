@@ -33,8 +33,6 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
         public Matrix4x4 localToWorldMatrix; // 64
         public int indices_offset;           // 4
         public int indices_count;            // 4
-        public int padA;                     // 4
-        public int padB;                     // 4
         public Vector4 Kd;                   // (r,g,b,0) or (layer,*,*,-1)
         public Vector4 Ks;                   // (r,g,b, smoothness)
         public Vector4 Kt;                   // (r,g,b,0)
@@ -161,8 +159,6 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
                     localToWorldMatrix = mr.localToWorldMatrix,
                     indices_offset = indicesOffset,
                     indices_count = ids.Length,
-                    padA = 0,
-                    padB = 0,
                     Kd = Kd,
                     Ks = Ks,
                     Kt = Kt
