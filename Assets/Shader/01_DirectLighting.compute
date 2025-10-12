@@ -74,14 +74,34 @@ float3 GetKd(ExtraHitInfo extraHitInfo)
     return lerp(color, colorFromTexture, -Kd.w);
 }
 
+// Phong Interpolation of Normal
+float3 GetNormal(ExtraHitInfo extraHitInfo)
+{
+    float3x3 rot = _MeshObjects[extraHitInfo.hitMesh].localToWorldMatrix;
+    
+    uint offset = extraHitInfo.hitIndexOffset;
+    int v0 = _Indices[offset], v1 = _Indices[offset + 1], v2 = _Indices[offset + 2];
+    float2 hitUV = extraHitInfo.hitUV;
+    
+    float3 localN = normalize((1.f - hitUV.x - hitUV.y) * normalize(_Normals[v0]) + hitUV.x * normalize(_Normals[v1]) + hitUV.y * normalize(_Normals[v2]));
+    float3 N = mul(rot, localN);
+    
+    if (dot(N, extraHitInfo.hitInfo.normal) < 0)
+        return -N;
+    else
+        return N;
+}
+
 float3 Shade(ExtraHitInfo extraHitInfo)
 {
     float3 color = float3(0, 0, 0);
     uint lightCount, stride;
     _Lights.GetDimensions(lightCount, stride);
     
+    const float3 N = GetNormal(extraHitInfo);
+    
     Ray shadowRay;
-    shadowRay.origin = extraHitInfo.hitInfo.position + extraHitInfo.hitInfo.normal * 0.001;
+    shadowRay.origin = extraHitInfo.hitInfo.position + N * 0.001;
     float shadowRayDistance = 1.#INF;
     
     for (uint i = 0; i < lightCount; ++i)
@@ -107,15 +127,15 @@ float3 Shade(ExtraHitInfo extraHitInfo)
             continue;
         
         // 計算 Phong Shading
-        if (dot(extraHitInfo.hitInfo.normal, shadowRay.dir) > 0)
+        if (dot(N, shadowRay.dir) > 0)
         {
             // Diffuse
             float3 Kd = GetKd(extraHitInfo);
-            float NdotL = max(dot(extraHitInfo.hitInfo.normal, shadowRay.dir), 0);
+            float NdotL = max(dot(N, shadowRay.dir), 0);
             float3 diffuse = Kd * _LightColors[i] * NdotL;
 
             // Specular
-            float3 R = reflect(-shadowRay.dir, extraHitInfo.hitInfo.normal); // 光 -> 物 反射
+            float3 R = reflect(-shadowRay.dir, N); // 光 -> 物 反射
             float3 V = normalize(mul(_CameraToWorld, float4(0, 0, 0, 1)).xyz - extraHitInfo.hitInfo.position); // 物 -> 眼
             float spec = pow(max(dot(R, V), 0), 100);
             float3 specular = _MeshObjects[extraHitInfo.hitMesh].Ks.xyz * _LightColors[i] * spec;
