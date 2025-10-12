@@ -8,21 +8,29 @@ public class RayTracer_ShaderVer : MonoBehaviour
     RenderTexture _target;   ///< Compute Shader 渲染在這個 texture，然後再顯示在 _displayQuad
     GameObject _displayQuad; ///< 放在 Near Clip Plane 上，負責顯示渲染結果
     Camera _camera;          ///< 記錄相機 Component
+    int _renderTime = 0;
 
     [Tooltip("使用第 0 個 kernel 進行渲染，RenderTexture 會綁定在 Result 變數")]
     public ComputeShader RayTracingShader;
 
+    [Tooltip("只渲染一幀")]
+    public bool OnlyRenderOneTime = true;
+
     private void Awake()
     {
         _camera = GetComponent<Camera>();
+        _renderTime = 0;
     }
 
     private void Update()
     {
+        if (OnlyRenderOneTime && _renderTime > 0)
+            return;
+        ++_renderTime;
+
         InitRenderTexture();
         InitDisplayQuad();
         SetupBasicParameters();
-        SetupExtraParameters();
 
         // Rendering
         RayTracingShader.Dispatch(0, Mathf.CeilToInt(Screen.width / 8), Mathf.CeilToInt(Screen.height / 8), 1);
@@ -87,13 +95,5 @@ public class RayTracer_ShaderVer : MonoBehaviour
         RayTracingShader.SetMatrix("_CameraProjectionInverse", Matrix4x4.Perspective(_camera.fieldOfView, _camera.aspect, _camera.nearClipPlane, _camera.farClipPlane).inverse);
         RayTracingShader.SetMatrix("_CameraToWorld", _camera.cameraToWorldMatrix);
         RayTracingShader.SetVector("_ScreenSize", new Vector2(Screen.width, Screen.height));
-    }
-
-    /// <summary>
-    /// 可由子類覆寫進行擴充
-    /// </summary>
-    protected virtual void SetupExtraParameters()
-    {
-
     }
 }

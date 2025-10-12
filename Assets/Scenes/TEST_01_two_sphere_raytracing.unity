@@ -156,6 +156,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   RayTracingShader: {fileID: 7200000, guid: 20eeab46e495da84a83d70bfc4907fac, type: 3}
+  OnlyRenderOneTime: 0
 --- !u!81 &738313669
 AudioListener:
   m_ObjectHideFlags: 0
