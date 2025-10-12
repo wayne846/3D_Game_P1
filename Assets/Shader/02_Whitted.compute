@@ -79,6 +79,7 @@ float3 Shade(Ray currentRay, ExtraHitInfo extraHitInfo)
     float3 color = float3(0, 0, 0);
     uint lightCount, stride;
     _Lights.GetDimensions(lightCount, stride);
+    float3 Ks = float3(1, 1, 1);
     
     for (int i = 0; i < 3; ++i)
     {
@@ -120,12 +121,12 @@ float3 Shade(Ray currentRay, ExtraHitInfo extraHitInfo)
                 float NdotL = max(dot(extraHitInfo.hitInfo.normal, shadowRay.dir), 0);
                 float3 diffuse = Kd * _LightColors[i] * NdotL;
 
-                color += diffuse;
+                color += diffuse * Ks;
             }
         }
         
         // specular ray
-        float3 Ks = _MeshObjects[extraHitInfo.hitMesh].Ks;
+        Ks = _MeshObjects[extraHitInfo.hitMesh].Ks;
         if (distance(Ks, float3(0, 0, 0)) > 0.001)
         {
             // 產生 specular ray
