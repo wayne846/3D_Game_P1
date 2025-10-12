@@ -1,4 +1,7 @@
 // 包含基本的 Ray 和 Ray Hit 計算
+#ifndef BASIC_RAY
+#define BASIC_RAY
+
 #include "HLSLSupport.cginc"
 
 struct Ray
@@ -143,4 +146,4 @@ bool IntersectTriangle_MT97(Ray ray, float3 vert0, float3 vert1, float3 vert2,
     return false;
 }
 
-
+#endif

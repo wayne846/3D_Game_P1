@@ -1,5 +1,7 @@
 // 這個檔案定義了 PbrtScene 中的資料怎麼傳給 shader
 // 要傳 Texture Array, Mesh, Lights
+#ifndef SCENE_DATA
+#define SCENE_DATA
 
 Texture2DArray _Textures;            // 傳貼圖的陣列
 SamplerState sampler_Textures; // 不用傳
@@ -23,3 +25,5 @@ StructuredBuffer<float2> _UVs;      // 每個頂點的貼圖座標 (u, v), 沒�
 
 StructuredBuffer<float4> _Lights;      // 每個光都是 (x, y, z, w), 若 w == 0 -> 方向光的方向（物體 -> 光）, 若 w == 1 -> 點光的位置
 StructuredBuffer<float3> _LightColors; // 每個光的顏色 (r, g, b)
+
+#endif
