@@ -51,6 +51,7 @@ Ray CreateCameraRay(float x, float y)
 HitInfo CreateEmptyHitInfo()
 {
     HitInfo info;
+    info.position = float3(1.#INF, 1.#INF, 1.#INF);
     info.distance = 1.#INF; // inf
     return info;
 }

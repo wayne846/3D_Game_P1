@@ -6,6 +6,10 @@ using UnityEngine;
 public class RayTracer_ShaderVer : MonoBehaviour
 {
     RenderTexture _target;   ///< Compute Shader 渲染在這個 texture，然後再顯示在 _displayQuad
+    RenderTexture _target2;
+    RenderTexture WorldPosTexture;
+    RenderTexture NormalTexture;
+    Material _SSAOMat;
     GameObject _displayQuad; ///< 放在 Near Clip Plane 上，負責顯示渲染結果
     Camera _camera;          ///< 記錄相機 Component
     int _renderTime = 0;
@@ -16,10 +20,14 @@ public class RayTracer_ShaderVer : MonoBehaviour
     [Tooltip("只渲染一幀")]
     public bool OnlyRenderOneTime = true;
 
+    [Tooltip("")]
+    public bool DoSSAO = false;
+
     private void Awake()
     {
         _camera = GetComponent<Camera>();
         _renderTime = 0;
+        _SSAOMat = new Material(Shader.Find("Hidden/SSAO"));
     }
 
     private void Update()
@@ -34,6 +42,20 @@ public class RayTracer_ShaderVer : MonoBehaviour
 
         // Rendering
         RayTracingShader.Dispatch(0, Mathf.CeilToInt(Screen.width / 8), Mathf.CeilToInt(Screen.height / 8), 1);
+
+        if (DoSSAO)
+        {
+            _SSAOMat.SetTexture("_WorldPosTex", WorldPosTexture);
+            _SSAOMat.SetTexture("_NormalTex", NormalTexture);
+            _SSAOMat.SetVector("_TexSize", new Vector2(Screen.width, Screen.height));
+            _SSAOMat.SetVector("_CameraPos", _camera.transform.position);
+
+            Graphics.Blit(_target, _target2, _SSAOMat);
+            // swap texture
+            (_target, _target2) = (_target2, _target);
+            _displayQuad.GetComponent<MeshRenderer>().material.mainTexture = _target;
+        }
+
     }
 
     private void InitRenderTexture()
@@ -52,6 +74,36 @@ public class RayTracer_ShaderVer : MonoBehaviour
 
             if (_displayQuad != null)
                 _displayQuad.GetComponent<MeshRenderer>().material.mainTexture = _target;
+        }
+
+        if (_target2 == null || _target2.width != _target.width || _target2.height != _target.height)
+        {
+            if (_target2 != null)
+                _target2.Release();
+
+            _target2 = new RenderTexture(_target.width, _target.height, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
+            _target2.enableRandomWrite = true;
+            _target2.Create();
+        }
+
+        if (WorldPosTexture == null || WorldPosTexture.width != _target.width || WorldPosTexture.height != _target.height)
+        {
+            if (WorldPosTexture != null)
+                WorldPosTexture.Release();
+
+            WorldPosTexture = new RenderTexture(_target.width, _target.height, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
+            WorldPosTexture.enableRandomWrite = true;
+            WorldPosTexture.Create();
+        }
+
+        if (NormalTexture == null || NormalTexture.width != _target.width || NormalTexture.height != _target.height)
+        {
+            if (NormalTexture != null)
+                NormalTexture.Release();
+
+            NormalTexture = new RenderTexture(_target.width, _target.height, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
+            NormalTexture.enableRandomWrite = true;
+            NormalTexture.Create();
         }
     }
 
@@ -92,6 +144,8 @@ public class RayTracer_ShaderVer : MonoBehaviour
     private void SetupBasicParameters()
     {
         RayTracingShader.SetTexture(0, "Result", _target);
+        RayTracingShader.SetTexture(0, "WorldPosTexture", WorldPosTexture);
+        RayTracingShader.SetTexture(0, "NormalTexture", NormalTexture);
         RayTracingShader.SetMatrix("_CameraProjectionInverse", Matrix4x4.Perspective(_camera.fieldOfView, _camera.aspect, _camera.nearClipPlane, _camera.farClipPlane).inverse);
         RayTracingShader.SetMatrix("_CameraToWorld", _camera.cameraToWorldMatrix);
         RayTracingShader.SetVector("_ScreenSize", new Vector2(Screen.width, Screen.height));

@@ -7,12 +7,18 @@
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
 RWTexture2D<float4> Result;
+RWTexture2D<float4> WorldPosTexture;
+RWTexture2D<float4> NormalTexture;
 
 float3 Shade(ExtraHitInfo extraHitInfo)
 {
     float3 color = float3(0, 0, 0);
     uint lightCount, stride;
     _Lights.GetDimensions(lightCount, stride);
+    
+    // 沒打到任何東西
+    if (isinf(extraHitInfo.hitInfo.distance))
+        return color;
     
     const float3 N = GetNormal(extraHitInfo);
     
@@ -69,4 +75,6 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     Ray cameraRay = CreateCameraRay(id.x, id.y);
     ExtraHitInfo extraHitInfo = Trace(cameraRay, 1.#INF);
     Result[id.xy] = float4(Shade(extraHitInfo), 0.0);
+    WorldPosTexture[id.xy] = float4(extraHitInfo.hitInfo.position, 1);
+    NormalTexture[id.xy] = float4(GetNormal(extraHitInfo), 0);
 }
