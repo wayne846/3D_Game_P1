@@ -220,6 +220,7 @@ public class PbrtSphere : PbrtShape
 {
     public override bool intersect(PbrtRay ray, Interval rayInterval, out PbrtHitInfo hitInfo)
     {
+
         Vector3 center = objectToWorld.ExtractPosition();
         float radius = (float)parameters["radius"];
 
@@ -254,6 +255,7 @@ public class PbrtSphere : PbrtShape
         hitInfo.position = ray.origin + ray.dir.normalized * hitInfo.distance;
         hitInfo.normal = (hitInfo.position - center) / radius;
 
+        if (attachedLight != null) return false;
         return isHit;
     }
 }
