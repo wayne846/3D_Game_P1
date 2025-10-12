@@ -70,9 +70,10 @@ Shader "Custom/LocalShading"
                 float3 diff = max(dot(N, L), 0.0f);
                 float3 diffuse = baseColor.rgb * _LightColor0.rgb * diff;
 
-                float3 R = reflect(-L, N);
-                //float spec = pow(max(dot(R, V), 0.0f), _Shiness);
-                float spec = 1;
+                float3 R = normalize(reflect(-L, N));
+                float spec = max(dot(R, V), 0.0f);
+                spec = pow(spec, _Shininess);
+                //float spec = 1;
                 float3 specular = _SpecColor.rgb * _LightColor0.rgb * spec;
 
                 return float4(diffuse + specular, _Color.a);
