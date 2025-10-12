@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
@@ -40,7 +41,7 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
     }
 
     // GPU buffers
-    ComputeBuffer _meshObjBuf, _indicesBuf, _vBuf, _nBuf, _uvBuf, _lightBuf;
+    ComputeBuffer _meshObjBuf, _indicesBuf, _vBuf, _nBuf, _uvBuf, _lightBuf, _lightColorsBuf;
     Texture2DArray _texArray;
     int _kernel;
 
@@ -64,6 +65,7 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
         _nBuf?.Release(); _nBuf = null;
         _uvBuf?.Release(); _uvBuf = null;
         _lightBuf?.Release(); _lightBuf = null;
+        _lightColorsBuf?.Release(); _lightColorsBuf = null;
         if (_texArray) { Destroy(_texArray); _texArray = null; }
     }
 
@@ -170,6 +172,7 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
 
         // light
         var lights = new List<Vector4>();
+        var lightColors = new List<Vector3>();
         if (gatherLights)
         {
             var inactive = includeInactiveLights ? FindObjectsInactive.Include : FindObjectsInactive.Exclude;
@@ -185,40 +188,48 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
                     var d = -lt.transform.forward.normalized;
                     lights.Add(new Vector4(d.x, d.y, d.z, 0));
                 }
+                else continue;
+
+                Color c = lt.color;
+                lightColors.Add(new Vector3(c.r, c.g, c.b) * lt.intensity);
             }
 
-            // upload
-            Upload(ref _meshObjBuf, meshObjs);
-            Upload(ref _indicesBuf, allIndices);
-            Upload(ref _vBuf, allV);
-            Upload(ref _nBuf, allN);
-            Upload(ref _uvBuf, allUV);
-            Upload(ref _lightBuf, lights);
-
-            var cs = rayTracingCompute;
-            cs.SetBuffer(_kernel, "_MeshObjects", _meshObjBuf);
-            cs.SetBuffer(_kernel, "_Indices", _indicesBuf);
-            cs.SetBuffer(_kernel, "_Vertices", _vBuf);
-            cs.SetBuffer(_kernel, "_Normals", _nBuf);
-            cs.SetBuffer(_kernel, "_UVs", _uvBuf);
-            cs.SetBuffer(_kernel, "_Lights", _lightBuf);
-
-            if (_texArray)
-            {
-                cs.SetTexture(_kernel, "_Textures", _texArray);
-                cs.SetInt("_TextureCount", _texArray.depth);
-            }
-            else cs.SetInt("_TextureCount", 0);
-
-            // Debug
-            meshObjectCount = meshObjs.Count;
-            vertexCount = allV.Count;
-            indexCount = allIndices.Count;
-            lightCount = lights.Count;
-            textureLayerCount = _texArray ? _texArray.depth : 0;
-
-            Debug.Log($"[MeshToCompute] objs:{meshObjectCount}, v:{vertexCount}, i:{indexCount}, lights:{lightCount}, texLayers:{textureLayerCount}");
         }
+
+        // upload
+        Upload(ref _meshObjBuf, meshObjs);
+        Upload(ref _indicesBuf, allIndices);
+        Upload(ref _vBuf, allV);
+        Upload(ref _nBuf, allN);
+        Upload(ref _uvBuf, allUV);
+        Upload(ref _lightBuf, lights);
+        Upload(ref _lightColorsBuf, lightColors);
+
+        var cs = rayTracingCompute;
+        cs.SetBuffer(_kernel, "_MeshObjects", _meshObjBuf);
+        cs.SetBuffer(_kernel, "_Indices", _indicesBuf);
+        cs.SetBuffer(_kernel, "_Vertices", _vBuf);
+        cs.SetBuffer(_kernel, "_Normals", _nBuf);
+        cs.SetBuffer(_kernel, "_UVs", _uvBuf);
+        cs.SetBuffer(_kernel, "_Lights", _lightBuf);
+        cs.SetBuffer(_kernel, "_LightColors", _lightColorsBuf);
+
+        if (_texArray)
+        {
+            cs.SetTexture(_kernel, "_Textures", _texArray);
+            cs.SetInt("_TextureCount", _texArray.depth);
+        }
+        else cs.SetInt("_TextureCount", 0);
+
+        // Debug
+        meshObjectCount = meshObjs.Count;
+        vertexCount = allV.Count;
+        indexCount = allIndices.Count;
+        lightCount = lights.Count;
+        textureLayerCount = _texArray ? _texArray.depth : 0;
+
+        Debug.Log($"[MeshToCompute] objs:{meshObjectCount}, v:{vertexCount}, i:{indexCount}, lights:{lightCount}, texLayers:{textureLayerCount}");
+        
     }
 
     Dictionary<Texture, int> BuildTextureArrayFromPbrt(PbrtScene scene)
