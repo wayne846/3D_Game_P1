@@ -71,7 +71,19 @@ class PBRTLoader
                     break;
 
                 case PbrtSphere S:
-                    Debug.LogWarning("Sphere Not Implemented");
+                    if (shape.attachedLight != null)
+                    {
+                        GameObject lightObj = new GameObject("Point Light");
+                        // 將它放在場景中的位置
+                        lightObj.transform.position = shape.objectToWorld * new Vector4(0, 0, 0, 1);
+                        // 加上 Light Component
+                        Light lightComp = lightObj.AddComponent<Light>();
+                        // 設定為點光
+                        lightComp.type = LightType.Point;
+                        // 設定顏色
+                        Vector3 color = (Vector3)shape.attachedLight.parameters["L"];
+                        lightComp.color = new Color(Mathf.Clamp01(color.x), Mathf.Clamp01(color.y), Mathf.Clamp01(color.z), 1);
+                    }
                     break;
             }
         }
