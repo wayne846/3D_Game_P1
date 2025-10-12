@@ -11,9 +11,6 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
     public ComputeShader rayTracingCompute;
     public string kernelName = "CSMain";
 
-    [Header("PBRT Source (textures only)")]
-    public PbrtScene pbrtSceneRef;
-
     [Header("Options")]
     public bool includeInactiveMeshes = true;
     public bool gatherLights = true;
@@ -45,11 +42,7 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
 
     void OnEnable()
     {
-        PbrtParser parser = new PbrtParser();
-        pbrtSceneRef = parser.Parse("Assets/StreamingAssets/sibenik-whitted.pbrt");
-
         if (!rayTracingCompute) { Debug.LogError("[MeshToCompute] Assign ComputeShader."); enabled = false; return; }
-        if (pbrtSceneRef == null) { Debug.LogError("[MeshToCompute] Assign PbrtScene (for textures)."); enabled = false; return; }
 
         _kernel = rayTracingCompute.FindKernel(kernelName);
         BuildAndUpload();
@@ -70,8 +63,7 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
     public void BuildAndUpload()
     {
         // texture array
-        var layerMap = BuildTextureArrayFromPbrt(pbrtSceneRef);
-
+        var textures = new List<Texture2D>();
         var meshObjs = new List<MeshObjectCS>();
         var allV = new List<Vector3>();
         var allN = new List<Vector3>();
@@ -142,12 +134,27 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
                     var specCol = mat.HasProperty("_SpecColor") ? mat.GetColor("_SpecColor") : Color.black;
 
                     // texture
-                    Texture mainTex = null;
-                    if (mat.HasProperty("_BaseMap")) mainTex = mat.GetTexture("_BaseMap");
-                    else if (mat.HasProperty("_MainTex")) mainTex = mat.GetTexture("_MainTex");
+                    Texture2D mainTex = mat.mainTexture as Texture2D;
+                    //if (mat.HasProperty("_BaseMap")) mainTex = mat.GetTexture("_BaseMap");
+                    //else if (mat.HasProperty("_MainTex")) mainTex = mat.GetTexture("_MainTex");
 
-                    if (mainTex && layerMap.TryGetValue(mainTex, out int layer))
-                        Kd = new Vector4(layer, 0, 0, -1);
+                    if (mainTex)
+                    {
+                        for (int layer = 0; layer < textures.Count; ++layer)
+                        {
+                            if (textures[layer] == mainTex)
+                            {
+                                Kd = new Vector4(layer, 0, 0, -1);
+                                break;
+                            }
+                        }
+
+                        if (Kd.w == 0)
+                        {
+                            textures.Add(mainTex);
+                            Kd = new Vector4(textures.Count - 1, 0, 0, -1);
+                        }
+                    }
                     else
                         Kd = new Vector4(baseCol.r, baseCol.g, baseCol.b, 0);
 
@@ -193,6 +200,7 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
         }
 
         // upload
+        BuildTextureArray(textures);
         Upload(ref _meshObjBuf, meshObjs);
         Upload(ref _indicesBuf, allIndices);
         Upload(ref _vBuf, allV);
@@ -228,59 +236,41 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
         
     }
 
-    Dictionary<Texture, int> BuildTextureArrayFromPbrt(PbrtScene scene)
+    void BuildTextureArray(List<Texture2D> list)
     {
         if (_texArray) { Destroy(_texArray); _texArray = null; }
 
-        var map = new Dictionary<Texture, int>();
-        var list = new List<Texture2D>();
-        if (scene?.KnownTexture != null)
+        if (list.Count == 0) return;
+
+
+        const int w = 640, h = 640;
+        // 將所有 texture 縮放至 640 * 640
+        for (int j = 0; j < list.Count; j++)
         {
-            foreach (var kv in scene.KnownTexture)
-                if (kv.Value) list.Add(kv.Value);
-        }
-        if (list.Count == 0) return map;
-
-
-        int w = list[0].width, h = list[0].height;
-        TextureFormat fmt = list[0].format;
-        bool needConvert = false;
-        for (int i = 1; i < list.Count; i++)
-            if (list[i].width != w || list[i].height != h || list[i].format != fmt) { needConvert = true; break; }
-
-        if (needConvert || fmt != TextureFormat.RGBA32)
-        {
-            for (int j = 0; j < list.Count; j++)
+            if (list[j].format != TextureFormat.RGBA32 || list[j].width != w || list[j].height != h)
             {
-                if (list[j].format != TextureFormat.RGBA32 || list[j].width != w || list[j].height != h)
-                {
-                    var rt = new RenderTexture(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
-                    Graphics.Blit(list[j], rt);
-                    var tmp = new Texture2D(w, h, TextureFormat.RGBA32, true, true);
-                    var prev = RenderTexture.active;
-                    RenderTexture.active = rt;
-                    tmp.ReadPixels(new Rect(0, 0, w, h), 0, 0);
-                    tmp.Apply();
-                    RenderTexture.active = prev;
-                    rt.Release();
-                    list[j] = tmp;
-                }
+                var rt = new RenderTexture(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+                Graphics.Blit(list[j], rt);
+                var tmp = new Texture2D(w, h, TextureFormat.RGBA32, true, true);
+                var prev = RenderTexture.active;
+                RenderTexture.active = rt;
+                tmp.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+                tmp.Apply();
+                RenderTexture.active = prev;
+                rt.Release();
+                list[j] = tmp;
             }
-            fmt = TextureFormat.RGBA32;
         }
 
-        _texArray = new Texture2DArray(w, h, list.Count, fmt, true, true);
+        _texArray = new Texture2DArray(w, h, list.Count, TextureFormat.RGBA32, true, true);
         _texArray.filterMode = FilterMode.Trilinear;
-        _texArray.wrapMode = TextureWrapMode.Repeat;
+        _texArray.wrapMode = TextureWrapMode.Clamp;
 
         for (int layer = 0; layer < list.Count; layer++)
         {
             _texArray.SetPixels(list[layer].GetPixels(), layer);
-            map[list[layer]] = layer;
         }
         _texArray.Apply(false, false);
-
-        return map;
     }
     
 
