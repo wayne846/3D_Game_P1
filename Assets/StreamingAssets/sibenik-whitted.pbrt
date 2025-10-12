@@ -29,6 +29,11 @@ Camera "perspective" "float fov" [80]
 Integrator "whitted"
 #Integrator "directlighting" "integer maxdepth" [1]
 
+# AO
+#Integrator "ambientocclusion" "integer nsamples" [64]
+#Sampler "halton" "integer pixelsamples" [16]
+
+
 WorldBegin
 	AttributeBegin
 		AreaLightSource "diffuse" "color L" [15 15 15 ] "integer nsamples" [4]
