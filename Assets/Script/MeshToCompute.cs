@@ -200,7 +200,7 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
         }
 
         // upload
-        BuildTextureArray(textures);
+        BuildTextureArray();
         Upload(ref _meshObjBuf, meshObjs);
         Upload(ref _indicesBuf, allIndices);
         Upload(ref _vBuf, allV);
@@ -236,41 +236,73 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
         
     }
 
-    void BuildTextureArray(List<Texture2D> list)
+    Dictionary<Texture, int> BuildTextureArray()
     {
         if (_texArray) { Destroy(_texArray); _texArray = null; }
 
-        if (list.Count == 0) return;
+        var unique = new List<Texture2D>();
+        var seen = new HashSet<Texture>();
 
+        var inactivePolicy = includeInactiveMeshes ? FindObjectsInactive.Include : FindObjectsInactive.Exclude;
+        var renderers = FindObjectsByType<MeshRenderer>(inactivePolicy, FindObjectsSortMode.None);
 
-        const int w = 640, h = 640;
-        // 將所有 texture 縮放至 640 * 640
-        for (int j = 0; j < list.Count; j++)
+        foreach (var mr in renderers)
         {
-            if (list[j].format != TextureFormat.RGBA32 || list[j].width != w || list[j].height != h)
+            foreach (var mat in mr.sharedMaterials)
             {
-                var rt = new RenderTexture(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
-                Graphics.Blit(list[j], rt);
-                var tmp = new Texture2D(w, h, TextureFormat.RGBA32, true, true);
-                var prev = RenderTexture.active;
-                RenderTexture.active = rt;
-                tmp.ReadPixels(new Rect(0, 0, w, h), 0, 0);
-                tmp.Apply();
-                RenderTexture.active = prev;
-                rt.Release();
-                list[j] = tmp;
+                if (!mat) continue;
+
+                Texture t = null;
+                if (mat.HasProperty("_BaseMap")) t = mat.GetTexture("_BaseMap");
+                else if (mat.HasProperty("_MainTex")) t = mat.GetTexture("_MainTex");
+
+                var t2d = t as Texture2D;
+                if (!t2d) continue;
+                if (seen.Add(t2d)) unique.Add(t2d);
             }
         }
 
-        _texArray = new Texture2DArray(w, h, list.Count, TextureFormat.RGBA32, true, true);
+        var map = new Dictionary<Texture, int>();
+        if (unique.Count == 0) return map;
+
+        // 尺寸/格式統一：以第 0 張為基準，必要時用 Blit 轉 RGBA32
+        int w = unique[0].width, h = unique[0].height;
+        TextureFormat fmt = unique[0].format;
+        bool needConvert = false;
+        for (int i = 1; i < unique.Count; i++)
+            if (unique[i].width != w || unique[i].height != h || unique[i].format != fmt) { needConvert = true; break; }
+        if (needConvert || fmt != TextureFormat.RGBA32)
+        {
+            for (int i = 0; i < unique.Count; i++)
+                unique[i] = ToRGBA32(unique[i], w, h);
+            fmt = TextureFormat.RGBA32;
+        }
+
+        _texArray = new Texture2DArray(w, h, unique.Count, fmt, true, true);
         _texArray.filterMode = FilterMode.Trilinear;
         _texArray.wrapMode = TextureWrapMode.Repeat;
 
-        for (int layer = 0; layer < list.Count; layer++)
+        for (int layer = 0; layer < unique.Count; layer++)
         {
-            _texArray.SetPixels(list[layer].GetPixels(), layer);
+            _texArray.SetPixels(unique[layer].GetPixels(), layer);
+            map[unique[layer]] = layer;
         }
         _texArray.Apply(false, false);
+
+        return map;
+    }
+    static Texture2D ToRGBA32(Texture2D src, int w, int h)
+    {
+        var rt = new RenderTexture(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+        Graphics.Blit(src, rt);
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, true, true);
+        tex.ReadPixels(new Rect(0,0,w,h), 0, 0, false);
+        tex.Apply();
+        RenderTexture.active = prev;
+        rt.Release();
+        return tex;
     }
     
 
