@@ -71,7 +71,7 @@ float3 Shade(Ray currentRay, ExtraHitInfo extraHitInfo)
     // set AO parameters
     int   aoSamples  = (_AOSamples   > 0) ? _AOSamples   : 4;
     float aoRadius   = (_AORadius    > 0) ? _AORadius    : 0.6;
-    float aoBias     = (_AOBias      > 0) ? _AOBias      : 0.003;
+    float aoBias     = (_AOBias      > 0) ? _AOBias      : 0.006;
     float aoStrength = (_AOIntensity > 0) ? _AOIntensity : 1.0;
 
     float3 Ks = float3(1, 1, 1);
