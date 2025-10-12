@@ -264,7 +264,7 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
 
         _texArray = new Texture2DArray(w, h, list.Count, TextureFormat.RGBA32, true, true);
         _texArray.filterMode = FilterMode.Trilinear;
-        _texArray.wrapMode = TextureWrapMode.Clamp;
+        _texArray.wrapMode = TextureWrapMode.Repeat;
 
         for (int layer = 0; layer < list.Count; layer++)
         {
