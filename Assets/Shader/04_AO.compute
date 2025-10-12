@@ -1,0 +1,142 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+#include "BasicRay.hlsl"
+#include "SceneData.hlsl"
+#include "SceneTrace.hlsl"
+
+RWTexture2D<float4> Result;
+
+// AO parameters 
+cbuffer AOParams
+{
+    int   _AOSamples;
+    float _AORadius;
+    float _AOBias;
+    float _AOIntensity;
+}
+
+bool HasHit(ExtraHitInfo h) { return all(h.hitUV != float2(-1,-1)); }
+
+float Hash12(float2 p) {
+    float h = dot(p, float2(127.1, 311.7));
+    return frac(sin(h) * 43758.5453123);
+}
+
+float3 SampleCosHemisphere(float2 u, float3 N) {
+    float r   = sqrt(u.x);
+    float phi = 6.2831853 * u.y;
+    float x = r * cos(phi), y = r * sin(phi);
+    float z = sqrt(saturate(1.0 - x*x - y*y));
+
+    float3 up = (abs(N.z) < 0.999) ? float3(0,0,1) : float3(1,0,0);
+    float3 T = normalize(cross(up, N));
+    float3 B = cross(N, T);
+    return normalize(x*T + y*B + z*N);
+}
+
+float ComputeAmbientOcclusion(ExtraHitInfo info, float3 N,
+                              int samples, float radius, float bias, float intensity)
+{
+    if (!HasHit(info)) return 1.0;
+
+    float3 P = info.hitInfo.position + N * bias;
+    float occ = 0.0;
+
+    float seed = Hash12(P.xy + N.xy);
+
+    [loop]
+    for (int i = 0; i < samples; ++i)
+    {
+        float2 u = float2(frac(i * 0.754877666 + seed), frac(i * 0.5698403 + seed*0.37));
+        float3 dir = SampleCosHemisphere(u, N);
+
+        Ray aoRay;
+        aoRay.origin = P;
+        aoRay.dir    = dir;
+
+        ExtraHitInfo hit = Trace(aoRay, radius);
+        if (HasHit(hit)) occ += 1.0;
+    }
+
+    float visibility = 1.0 - occ / max(1, samples);
+    return lerp(1.0, visibility, saturate(intensity));
+}
+
+float3 Shade(Ray currentRay, ExtraHitInfo extraHitInfo)
+{
+    float3 color = float3(0, 0, 0);
+    uint lightCount, stride;
+    _Lights.GetDimensions(lightCount, stride);
+
+    // set AO parameters
+    int   aoSamples  = (_AOSamples   > 0) ? _AOSamples   : 4;
+    float aoRadius   = (_AORadius    > 0) ? _AORadius    : 0.6;
+    float aoBias     = (_AOBias      > 0) ? _AOBias      : 0.003;
+    float aoStrength = (_AOIntensity > 0) ? _AOIntensity : 1.0;
+
+    float3 Ks = float3(1, 1, 1);
+
+    for (int bounce = 0; bounce < 3; ++bounce)
+    {
+        // 沒打到任何東西
+        if (!HasHit(extraHitInfo)) break;
+
+        const float3 N = GetNormal(extraHitInfo);
+
+        // compute AO
+        float ao = ComputeAmbientOcclusion(extraHitInfo, N, aoSamples, aoRadius, aoBias, aoStrength);
+
+        Ray shadowRay;
+        shadowRay.origin = extraHitInfo.hitInfo.position + N * 0.001;
+        float shadowRayDistance = 1.#INF;
+
+        for (uint i = 0; i < lightCount; ++i)
+        {
+            float4 light = _Lights[i];
+
+            // 生成 物體 -> 光源 的 shadow ray
+            if (light.w == 0) {
+                shadowRay.dir = normalize(light.xyz); 
+                shadowRayDistance = 1.#INF;
+            } else {
+                shadowRay.dir = normalize(light.xyz - shadowRay.origin);
+                shadowRayDistance = distance(light.xyz, shadowRay.origin);
+            }
+
+            // 計算 Phong Shading
+            if (dot(N, shadowRay.dir) <= 0) continue;
+
+            ExtraHitInfo shadowHit = Trace(shadowRay, shadowRayDistance);
+            if (HasHit(shadowHit)) continue;
+
+            float3 Kd = GetKd(extraHitInfo);
+            float  NdotL = max(dot(N, shadowRay.dir), 0);
+            color += Kd * _LightColors[i] * NdotL * ao * Ks;
+        }
+
+        // specular ray
+        Ks = _MeshObjects[extraHitInfo.hitMesh].Ks;
+        if (dot(Ks, Ks) > 1e-5)
+        {
+            // 產生 specular ray
+            Ray specularRay;
+            specularRay.origin = shadowRay.origin;
+            specularRay.dir    = reflect(currentRay.dir, N);
+
+            // 修改目前的 Ray, 繼續迭代
+            currentRay    = specularRay;
+            extraHitInfo  = Trace(specularRay, 1.#INF);
+        }
+        else break;
+    }
+
+    return color;
+}
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    Ray cameraRay = CreateCameraRay(id.x, id.y);
+    ExtraHitInfo extraHitInfo = Trace(cameraRay, 1.#INF);
+    Result[id.xy] = float4(Shade(cameraRay, extraHitInfo), 0.0);
+}
