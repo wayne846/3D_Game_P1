@@ -62,8 +62,8 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
 
     public void BuildAndUpload()
     {
-        // texture array
-        var textures = new List<Texture2D>();
+        var layerMap = BuildTextureArray();
+
         var meshObjs = new List<MeshObjectCS>();
         var allV = new List<Vector3>();
         var allN = new List<Vector3>();
@@ -79,101 +79,80 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
             if (!mf || !mf.sharedMesh) continue;
             var mesh = mf.sharedMesh;
 
-            // n v uv
+            // v n uv
             int vtxOffset = allV.Count;
-            var V = mesh.vertices;
-            var N = mesh.normals;
+            var V  = mesh.vertices;
+            var N  = mesh.normals;
             var UV = mesh.uv;
-            bool hasN = N != null && N.Length == V.Length;
+
+            bool hasN  = N  != null && N.Length  == V.Length;
             bool hasUV = UV != null && UV.Length == V.Length;
 
             allV.AddRange(V);
-            allN.AddRange(hasN ? N : FillVec3(V.Length, Vector3.up));
-
+            allN.AddRange(hasN  ? N  : FillVec3(V.Length, Vector3.up));
             if (hasUV)
             {
                 if (flipUV_V) { for (int i = 0; i < UV.Length; i++) UV[i].y = 1 - UV[i].y; }
                 allUV.AddRange(UV);
             }
-            else
-            {
-                allUV.AddRange(FillVec2(V.Length, Vector2.zero));
-            }
+            else allUV.AddRange(FillVec2(V.Length, Vector2.zero));
 
-            //index and texture
-            int subMeshCount = mesh.subMeshCount;
             var mats = mr.sharedMaterials;
+            int subMeshCount = mesh.subMeshCount;
 
             for (int sm = 0; sm < subMeshCount; sm++)
             {
-                // index
+                // indices
                 int indicesOffset = allIndices.Count;
                 var ids = mesh.GetTriangles(sm);
-                for (int i = 0; i < ids.Length; i++)
-                    allIndices.Add(vtxOffset + ids[i]);
+                for (int i = 0; i < ids.Length; i++) allIndices.Add(vtxOffset + ids[i]);
 
-                // kd ks kt
-                Vector4 Kd = new Vector4(1, 1, 1, 0);
-                Vector4 Ks = new Vector4(0, 0, 0, 0);
-                Vector4 Kt = new Vector4(0, 0, 0, 0);
+                // Kd / Ks / Kt
+                Vector4 Kd = new Vector4(1,1,1,0);
+                Vector4 Ks = new Vector4(0,0,0,0);
+                Vector4 Kt = new Vector4(0,0,0,0);
 
                 var mat = (sm < mats.Length) ? mats[sm] : null;
                 if (mat)
                 {
-                    // base color
                     var baseCol = mat.HasProperty("_BaseColor") ? mat.GetColor("_BaseColor")
-                               : mat.HasProperty("_Color") ? mat.color
-                               : Color.white;
+                                : mat.HasProperty("_Color")     ? mat.color
+                                : Color.white;
 
-                    // smoothness / glossiness
                     float smooth = mat.HasProperty("_Smoothness") ? mat.GetFloat("_Smoothness")
                                 : mat.HasProperty("_Glossiness") ? mat.GetFloat("_Glossiness")
                                 : 0f;
 
-                    // specular color
                     var specCol = mat.HasProperty("_SpecColor") ? mat.GetColor("_SpecColor") : Color.black;
 
-                    // texture
-                    Texture2D mainTex = mat.mainTexture as Texture2D;
-                    //if (mat.HasProperty("_BaseMap")) mainTex = mat.GetTexture("_BaseMap");
-                    //else if (mat.HasProperty("_MainTex")) mainTex = mat.GetTexture("_MainTex");
+                    Texture tex = null;
+                    if (mat.HasProperty("_BaseMap")) tex = mat.GetTexture("_BaseMap");
+                    else if (mat.HasProperty("_MainTex")) tex = mat.GetTexture("_MainTex");
 
-                    if (mainTex)
+                    bool foundLayer = false;
+                    if (tex && layerMap != null && layerMap.TryGetValue(tex, out int layer))
                     {
-                        for (int layer = 0; layer < textures.Count; ++layer)
-                        {
-                            if (textures[layer] == mainTex)
-                            {
-                                Kd = new Vector4(layer, 0, 0, -1);
-                                break;
-                            }
-                        }
-
-                        if (Kd.w == 0)
-                        {
-                            textures.Add(mainTex);
-                            Kd = new Vector4(textures.Count - 1, 0, 0, -1);
-                        }
+                        Kd = new Vector4(layer, 0, 0, -1);
+                        foundLayer = true;
                     }
-                    else
+                    if (!foundLayer)
+                    {
                         Kd = new Vector4(baseCol.r, baseCol.g, baseCol.b, 0);
+                    }
 
                     Ks = new Vector4(specCol.r, specCol.g, specCol.b, Mathf.Clamp01(smooth));
                 }
 
-                meshObjs.Add(new MeshObjectCS
-                {
+                meshObjs.Add(new MeshObjectCS {
                     localToWorldMatrix = mr.localToWorldMatrix,
                     indices_offset = indicesOffset,
-                    indices_count = ids.Length,
-                    Kd = Kd,
-                    Ks = Ks,
-                    Kt = Kt
+                    indices_count  = ids.Length,
+                    Kd = Kd, Ks = Ks, Kt = Kt
                 });
             }
         }
 
-        // light
+        // lights
         var lights = new List<Vector4>();
         var lightColors = new List<Vector3>();
         if (gatherLights)
@@ -193,55 +172,49 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
                 }
                 else continue;
 
-                Color c = lt.color;
+                var c = lt.color;
                 lightColors.Add(new Vector3(c.r, c.g, c.b) * lt.intensity);
             }
-
         }
 
         // upload
-        BuildTextureArray();
         Upload(ref _meshObjBuf, meshObjs);
-        Upload(ref _indicesBuf, allIndices);
-        Upload(ref _vBuf, allV);
-        Upload(ref _nBuf, allN);
-        Upload(ref _uvBuf, allUV);
-        Upload(ref _lightBuf, lights);
+        Upload(ref _indicesBuf,  allIndices);
+        Upload(ref _vBuf,        allV);
+        Upload(ref _nBuf,        allN);
+        Upload(ref _uvBuf,       allUV);
+        Upload(ref _lightBuf,    lights);
         Upload(ref _lightColorsBuf, lightColors);
 
         var cs = rayTracingCompute;
         cs.SetBuffer(_kernel, "_MeshObjects", _meshObjBuf);
-        cs.SetBuffer(_kernel, "_Indices", _indicesBuf);
-        cs.SetBuffer(_kernel, "_Vertices", _vBuf);
-        cs.SetBuffer(_kernel, "_Normals", _nBuf);
-        cs.SetBuffer(_kernel, "_UVs", _uvBuf);
-        cs.SetBuffer(_kernel, "_Lights", _lightBuf);
+        cs.SetBuffer(_kernel, "_Indices",     _indicesBuf);
+        cs.SetBuffer(_kernel, "_Vertices",    _vBuf);
+        cs.SetBuffer(_kernel, "_Normals",     _nBuf);
+        cs.SetBuffer(_kernel, "_UVs",         _uvBuf);
+        cs.SetBuffer(_kernel, "_Lights",      _lightBuf);
         cs.SetBuffer(_kernel, "_LightColors", _lightColorsBuf);
 
-        if (_texArray)
-        {
-            cs.SetTexture(_kernel, "_Textures", _texArray);
-            cs.SetInt("_TextureCount", _texArray.depth);
-        }
-        else cs.SetInt("_TextureCount", 0);
+        if (_texArray) { cs.SetTexture(_kernel, "_Textures", _texArray); cs.SetInt("_TextureCount", _texArray.depth); }
+        else           { cs.SetInt("_TextureCount", 0); }
 
-        // Debug
-        meshObjectCount = meshObjs.Count;
-        vertexCount = allV.Count;
-        indexCount = allIndices.Count;
-        lightCount = lights.Count;
+        meshObjectCount   = meshObjs.Count;
+        vertexCount       = allV.Count;
+        indexCount        = allIndices.Count;
+        lightCount        = lights.Count;
         textureLayerCount = _texArray ? _texArray.depth : 0;
 
         Debug.Log($"[MeshToCompute] objs:{meshObjectCount}, v:{vertexCount}, i:{indexCount}, lights:{lightCount}, texLayers:{textureLayerCount}");
-        
     }
+
 
     Dictionary<Texture, int> BuildTextureArray()
     {
         if (_texArray) { Destroy(_texArray); _texArray = null; }
 
-        var unique = new List<Texture2D>();
-        var seen = new HashSet<Texture>();
+        var origList  = new List<Texture2D>(); 
+        var packList  = new List<Texture2D>(); 
+        var seen      = new HashSet<Texture>();
 
         var inactivePolicy = includeInactiveMeshes ? FindObjectsInactive.Include : FindObjectsInactive.Exclude;
         var renderers = FindObjectsByType<MeshRenderer>(inactivePolicy, FindObjectsSortMode.None);
@@ -258,39 +231,40 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
 
                 var t2d = t as Texture2D;
                 if (!t2d) continue;
-                if (seen.Add(t2d)) unique.Add(t2d);
+                if (seen.Add(t2d)) { origList.Add(t2d);  packList.Add(t2d); }
             }
         }
 
         var map = new Dictionary<Texture, int>();
-        if (unique.Count == 0) return map;
+        if (packList.Count == 0) return map;
 
-        // 尺寸/格式統一：以第 0 張為基準，必要時用 Blit 轉 RGBA32
-        int w = unique[0].width, h = unique[0].height;
-        TextureFormat fmt = unique[0].format;
+        int w = packList[0].width, h = packList[0].height;
+        TextureFormat fmt = packList[0].format;
         bool needConvert = false;
-        for (int i = 1; i < unique.Count; i++)
-            if (unique[i].width != w || unique[i].height != h || unique[i].format != fmt) { needConvert = true; break; }
+        for (int i = 1; i < packList.Count; i++)
+            if (packList[i].width != w || packList[i].height != h || packList[i].format != fmt) { needConvert = true; break; }
+
         if (needConvert || fmt != TextureFormat.RGBA32)
         {
-            for (int i = 0; i < unique.Count; i++)
-                unique[i] = ToRGBA32(unique[i], w, h);
+            for (int i = 0; i < packList.Count; i++)
+                packList[i] = ToRGBA32(packList[i], w, h);
             fmt = TextureFormat.RGBA32;
         }
 
-        _texArray = new Texture2DArray(w, h, unique.Count, fmt, true, true);
+        _texArray = new Texture2DArray(w, h, packList.Count, fmt, true, true);
         _texArray.filterMode = FilterMode.Trilinear;
-        _texArray.wrapMode = TextureWrapMode.Repeat;
+        _texArray.wrapMode   = TextureWrapMode.Repeat;
 
-        for (int layer = 0; layer < unique.Count; layer++)
+        for (int layer = 0; layer < packList.Count; layer++)
         {
-            _texArray.SetPixels(unique[layer].GetPixels(), layer);
-            map[unique[layer]] = layer;
+            _texArray.SetPixels(packList[layer].GetPixels(), layer);
+            map[origList[layer]] = layer;
         }
         _texArray.Apply(false, false);
 
         return map;
     }
+
     static Texture2D ToRGBA32(Texture2D src, int w, int h)
     {
         var rt = new RenderTexture(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
