@@ -63,7 +63,7 @@ float3 GetKd(ExtraHitInfo extraHitInfo)
     
     // 計算 texcoord
     uint offset = extraHitInfo.hitIndexOffset;
-    int v0 = _Indices[0], v1 = _Indices[1], v2 = _Indices[2];
+    int v0 = _Indices[offset], v1 = _Indices[offset + 1], v2 = _Indices[offset + 2];
     float2 hitUV = extraHitInfo.hitUV;
     float2 texcoord = (1 - hitUV.x - hitUV.y) * _UVs[v0] + hitUV.x * _UVs[v1] + hitUV.y * _UVs[v2];
     
