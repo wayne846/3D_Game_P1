@@ -52,7 +52,7 @@ HitInfo CreateEmptyHitInfo()
     return info;
 }
 
-void IntersectSphere(Ray ray, float4 sphere, inout HitInfo hitInfo)
+bool IntersectSphere(Ray ray, float4 sphere, inout HitInfo hitInfo)
 {
     float3 center = sphere.xyz;
     float radius = sphere.w;
@@ -66,7 +66,7 @@ void IntersectSphere(Ray ray, float4 sphere, inout HitInfo hitInfo)
 
     if (discriminant < 0)
     {
-        return;
+        return false;
     }
 
     float sqrtd = sqrt(discriminant);
@@ -76,21 +76,23 @@ void IntersectSphere(Ray ray, float4 sphere, inout HitInfo hitInfo)
     if (root < 0)
         root = (h + sqrtd) / a;
     if (root < 0)
-        return;
+        return false;
 
     if (root < hitInfo.distance)
     {
         hitInfo.distance = root;
         hitInfo.position = ray.origin + normalize(ray.dir) * hitInfo.distance;
         hitInfo.normal = (hitInfo.position - center) / radius;
+        
+        return true;
     }
 
-    return;
+    return false;
 }
 
 /// 計算 Ray 和 三角型的交點，vert0, vert1, vert2 為三角型的三個頂點
 /// (u, v) 為交點的重心座標，交點 = (1-u-v) * vert0 + u * vert1 + v * vert2
-void IntersectTriangle_MT97(Ray ray, float3 vert0, float3 vert1, float3 vert2,
+bool IntersectTriangle_MT97(Ray ray, float3 vert0, float3 vert1, float3 vert2,
                             inout HitInfo hitInfo, out float u, out float v)
 {   
     // find vectors for two edges sharing vert0
@@ -106,7 +108,7 @@ void IntersectTriangle_MT97(Ray ray, float3 vert0, float3 vert1, float3 vert2,
     // 將 abs 刪掉 -> Back Face Culling
     const float EPSILON = 1e-8;
     if (abs(det) < EPSILON)
-        return;
+        return false;
     float inv_det = 1.0f / det;
 
     // calculate distance from vert0 to ray origin
@@ -115,7 +117,7 @@ void IntersectTriangle_MT97(Ray ray, float3 vert0, float3 vert1, float3 vert2,
     // calculate U parameter and test bounds
     u = dot(tvec, pvec) * inv_det;
     if (u < 0.0 || u > 1.0f)
-        return;
+        return false;
 
     // prepare to test V parameter
     float3 qvec = cross(tvec, edge1);
@@ -123,7 +125,7 @@ void IntersectTriangle_MT97(Ray ray, float3 vert0, float3 vert1, float3 vert2,
     // calculate V parameter and test bounds
     v = dot(ray.dir, qvec) * inv_det;
     if (v < 0.0 || u + v > 1.0f)
-        return;
+        return false;
 
     // calculate distance, ray intersects triangle
     float t = dot(edge2, qvec) * inv_det;
@@ -134,9 +136,11 @@ void IntersectTriangle_MT97(Ray ray, float3 vert0, float3 vert1, float3 vert2,
         hitInfo.normal = normalize(cross(edge1, edge2));
         if (dot(ray.dir, hitInfo.normal) > 0)
             hitInfo.normal = -hitInfo.normal;
+        
+        return true;
     }
     
-    return;
+    return false;
 }
 
 
