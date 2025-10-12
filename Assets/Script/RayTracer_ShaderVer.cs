@@ -75,6 +75,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
         // 設定 Quad 的本地位置和縮放
         _displayQuad.transform.localPosition = new Vector3(0, 0, quadPositionZ);
         _displayQuad.transform.localScale = new Vector3(quadWidth, quadHeight, 1f);
+        _displayQuad.transform.localRotation = Quaternion.identity;
     }
 
     /// <summary>
