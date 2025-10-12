@@ -21,5 +21,5 @@ StructuredBuffer<float3> _Vertices; // 每個頂點的位置    (x, y, z)
 StructuredBuffer<float3> _Normals;  // 每個頂點的法向量   (x, y, z)
 StructuredBuffer<float2> _UVs;      // 每個頂點的貼圖座標 (u, v), 沒貼圖座標填 (0, 0)
 
-StructuredBuffer<float4> _Lights;      // 每個光都是 (x, y, z, w), 若 w == 0 -> 方向光的方向, 若 w == 1 -> 點光的位置
+StructuredBuffer<float4> _Lights;      // 每個光都是 (x, y, z, w), 若 w == 0 -> 方向光的方向（物體 -> 光）, 若 w == 1 -> 點光的位置
 StructuredBuffer<float3> _LightColors; // 每個光的顏色 (r, g, b)

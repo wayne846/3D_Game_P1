@@ -91,7 +91,7 @@ float3 Shade(ExtraHitInfo extraHitInfo)
         // 生成 物體 -> 光源 的 shadow ray
         if (light.w == 0)
         {
-            shadowRay.dir = normalize(-light.xyz);
+            shadowRay.dir = normalize(light.xyz);
             shadowRayDistance = 1.#INF;
         }
         else
@@ -103,22 +103,27 @@ float3 Shade(ExtraHitInfo extraHitInfo)
         ExtraHitInfo shadowHit = Trace(shadowRay, shadowRayDistance);
         
         // 被遮住（有打到東西）
-        if (all(shadowHit.hitUV != float2(-1, -1)))
+        if (any(shadowHit.hitUV != float2(-1, -1)))
             continue;
         
         // 計算 Phong Shading
-        // Diffuse
-        float3 Kd = GetKd(extraHitInfo);
-        float NdotL = max(dot(extraHitInfo.hitInfo.normal, shadowRay.dir), 0);
-        float3 diffuse = Kd * _LightColors[i] * NdotL;
+        if (dot(extraHitInfo.hitInfo.normal, shadowRay.dir) > 0)
+        {
+            // Diffuse
+            float3 Kd = GetKd(extraHitInfo);
+            float NdotL = max(dot(extraHitInfo.hitInfo.normal, shadowRay.dir), 0);
+            float3 diffuse = Kd * _LightColors[i] * NdotL;
 
-        // Specular
-        float3 R = reflect(-shadowRay.dir, extraHitInfo.hitInfo.normal); // 光 -> 物 反射
-        float3 V = normalize(mul(_CameraToWorld, float4(0, 0, 0, 1)).xyz - extraHitInfo.hitInfo.position); // 物 -> 眼
-        float spec = pow(max(dot(R, V), 0), 100);
-        float3 specular = _MeshObjects[extraHitInfo.hitMesh].Ks.xyz * _LightColors[i] * spec;
+            // Specular
+            float3 R = reflect(-shadowRay.dir, extraHitInfo.hitInfo.normal); // 光 -> 物 反射
+            float3 V = normalize(mul(_CameraToWorld, float4(0, 0, 0, 1)).xyz - extraHitInfo.hitInfo.position); // 物 -> 眼
+            float spec = pow(max(dot(R, V), 0), 100);
+            float3 specular = _MeshObjects[extraHitInfo.hitMesh].Ks.xyz * _LightColors[i] * spec;
 
-        color += diffuse + specular;
+            color += diffuse + specular;
+        }
+        
+        color /= lightCount;
     }
 
     return color;
