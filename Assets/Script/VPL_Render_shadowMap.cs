@@ -217,9 +217,12 @@ public class VPL_Render_shadowMap : MonoBehaviour
     {
         if (shadowmapArray == null) return;
 
-        System.IO.Directory.CreateDirectory($"{Application.dataPath}/VPL_ShadowMaps");
+        if (Application.isEditor)
+            System.IO.Directory.CreateDirectory($"{Application.dataPath}/../Logs/VPL_ShadowMaps");
+        else
+            System.IO.Directory.CreateDirectory($"{Application.dataPath}/VPL_ShadowMaps");
 
-        int width  = shadowmapArray.width;
+        int width = shadowmapArray.width;
         int height = shadowmapArray.height;
         int depth  = shadowmapArray.depth;
 
@@ -242,7 +245,7 @@ public class VPL_Render_shadowMap : MonoBehaviour
             RenderTexture.active = prev;
 
             byte[] bytes = tex.EncodeToPNG();
-            string path = $"{Application.dataPath}/VPL_ShadowMaps/vpl_{i:D3}.png";
+            string path = Application.isEditor ? $"{Application.dataPath}/../Logs/VPL_ShadowMaps/vpl_{i:D3}.png" : $"{Application.dataPath}/VPL_ShadowMaps/vpl_{i:D3}.png";
             System.IO.File.WriteAllBytes(path, bytes);
 
             DestroyImmediate(tex);

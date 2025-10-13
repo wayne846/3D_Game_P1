@@ -79,7 +79,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 {
     Ray cameraRay = CreateCameraRay(id.x, id.y);
     ExtraHitInfo extraHitInfo = Trace(cameraRay, 1.#INF);
-    Result[id.xy] = float4(Shade(extraHitInfo), 0.0);
+    Result[id.xy] = float4(Shade(extraHitInfo), 1.0);
     WorldPosTexture[id.xy] = float4(extraHitInfo.hitInfo.position, 1);
     NormalTexture[id.xy] = float4(GetNormal(extraHitInfo), 0);
 }

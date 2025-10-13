@@ -143,5 +143,5 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 {
     Ray cameraRay = CreateCameraRay(id.x, id.y);
     ExtraHitInfo extraHitInfo = Trace(cameraRay, 1.#INF);
-    Result[id.xy] = float4(Shade(cameraRay, extraHitInfo), 0.0);
+    Result[id.xy] = float4(Shade(cameraRay, extraHitInfo), 1.0);
 }

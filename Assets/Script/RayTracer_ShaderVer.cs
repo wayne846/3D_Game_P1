@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 [RequireComponent(typeof(Camera))]
@@ -42,6 +44,36 @@ public class RayTracer_ShaderVer : MonoBehaviour
         ++_renderTime;
 
         Render();
+    }
+
+    [ContextMenu("Export Ray Tracing Result")]
+    public void ExportTexture()
+    {
+        if (!Application.isPlaying)
+            return;
+
+        string FileName = DateTime.Now.ToString("yy-MM-dd_HH-mm") + "_ray.exr";
+        Debug.Log(FileName);
+
+        var prev_rt = RenderTexture.active;
+        RenderTexture.active = _target;
+
+        var tmp = new Texture2D(_target.width, _target.height, TextureFormat.RGBAFloat, false, true);
+        tmp.ReadPixels(new Rect(0, 0, _target.width, _target.height), 0, 0);
+        tmp.Apply();
+        
+        RenderTexture.active = prev_rt;
+        
+        if (Application.isEditor)
+        {
+            File.WriteAllBytes(Path.Combine(new string[] { Application.dataPath, "..", "Logs", FileName }), tmp.EncodeToEXR());
+            DestroyImmediate(tmp);
+        }
+        else
+        {
+            File.WriteAllBytes(Path.Combine(new string[] { Application.dataPath, FileName }), tmp.EncodeToEXR());
+            Destroy(tmp);
+        }
     }
 
     public void Render()
