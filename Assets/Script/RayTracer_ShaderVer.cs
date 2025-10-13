@@ -23,11 +23,16 @@ public class RayTracer_ShaderVer : MonoBehaviour
     [Tooltip("")]
     public bool DoSSAO = false;
 
-    private void Awake()
+    private void OnEnable()
     {
         _camera = GetComponent<Camera>();
         _renderTime = 0;
         _SSAOMat = new Material(Shader.Find("Hidden/SSAO"));
+    }
+
+    private void OnDisable()
+    {
+        Destroy(_displayQuad);
     }
 
     private void Update()
@@ -43,7 +48,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
     {
         InitRenderTexture();
         InitDisplayQuad();
-        SetupBasicParameters();
+        SetupBasicParameters(); // NOTE: RayTracingShader 會渲染到 _target2
 
         // Rendering
         RayTracingShader.Dispatch(0, Mathf.CeilToInt(Screen.width / 8), Mathf.CeilToInt(Screen.height / 8), 1);
@@ -55,11 +60,10 @@ public class RayTracer_ShaderVer : MonoBehaviour
             _SSAOMat.SetVector("_TexSize", new Vector2(Screen.width, Screen.height));
             _SSAOMat.SetVector("_CameraPos", _camera.transform.position);
 
-            Graphics.Blit(_target, _target2, _SSAOMat);
-            // swap texture
-            (_target, _target2) = (_target2, _target);
-            _displayQuad.GetComponent<MeshRenderer>().material.mainTexture = _target;
+            Graphics.Blit(_target2, _target, _SSAOMat);
         }
+        else
+            Graphics.Blit(_target2, _target);
     }
 
     private void InitRenderTexture()
@@ -137,12 +141,9 @@ public class RayTracer_ShaderVer : MonoBehaviour
         float quadWidth = quadHeight * _camera.aspect;
 
         // 設定 Quad 的本地位置和縮放
-        _displayQuad.transform.SetParent(gameObject.transform);
         _displayQuad.transform.localPosition = new Vector3(0, 0, quadPositionZ);
         _displayQuad.transform.localScale = new Vector3(quadWidth, quadHeight, 1f);
         _displayQuad.transform.localRotation = Quaternion.identity;
-
-        _displayQuad.transform.SetParent(null);
     }
 
     /// <summary>
@@ -150,7 +151,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
     /// </summary>
     private void SetupBasicParameters()
     {
-        RayTracingShader.SetTexture(0, "Result", _target);
+        RayTracingShader.SetTexture(0, "Result", _target2);
         RayTracingShader.SetTexture(0, "WorldPosTexture", WorldPosTexture);
         RayTracingShader.SetTexture(0, "NormalTexture", NormalTexture);
         RayTracingShader.SetMatrix("_CameraProjectionInverse", Matrix4x4.Perspective(_camera.fieldOfView, _camera.aspect, _camera.nearClipPlane, _camera.farClipPlane).inverse);

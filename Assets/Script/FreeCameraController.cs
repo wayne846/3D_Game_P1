@@ -22,6 +22,7 @@ public class FreeCameraController : MonoBehaviour
 
     private float rotationX;
     private float rotationY;
+    private bool isMovedOrRotated;
 
     void Start()
     {
@@ -33,8 +34,18 @@ public class FreeCameraController : MonoBehaviour
 
     void Update()
     {
+        isMovedOrRotated = false;
         HandleMouseLook();
         HandleMovement();
+
+        if (isMovedOrRotated)
+        {
+            var tracer = GetComponent<RayTracer_ShaderVer>();
+            if (tracer != null && tracer.OnlyRenderOneTime)
+            {
+                tracer.enabled = false;
+            }
+        }
     }
 
     void HandleMouseLook()
@@ -45,6 +56,7 @@ public class FreeCameraController : MonoBehaviour
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
 
+            isMovedOrRotated |= (Input.GetAxis("Mouse X") != 0 || Input.GetAxis("Mouse Y") != 0);
             rotationX += Input.GetAxis("Mouse X") * lookSensitivity;
             rotationY -= Input.GetAxis("Mouse Y") * lookSensitivity;
             rotationY = Mathf.Clamp(rotationY, -89f, 89f); // 防止上下翻轉
@@ -62,12 +74,12 @@ public class FreeCameraController : MonoBehaviour
     {
         Vector3 moveDir = Vector3.zero;
 
-        if (Input.GetKey(KeyCode.W)) moveDir += transform.forward;
-        if (Input.GetKey(KeyCode.S)) moveDir -= transform.forward;
-        if (Input.GetKey(KeyCode.A)) moveDir -= transform.right;
-        if (Input.GetKey(KeyCode.D)) moveDir += transform.right;
-        if (Input.GetKey(KeyCode.E)) moveDir += transform.up;
-        if (Input.GetKey(KeyCode.Q)) moveDir -= transform.up;
+        if (Input.GetKey(KeyCode.W)) { isMovedOrRotated = true; moveDir += transform.forward; }  
+        if (Input.GetKey(KeyCode.S)) { isMovedOrRotated = true; moveDir -= transform.forward; }  
+        if (Input.GetKey(KeyCode.A)) { isMovedOrRotated = true; moveDir -= transform.right;   }
+        if (Input.GetKey(KeyCode.D)) { isMovedOrRotated = true; moveDir += transform.right;   }
+        if (Input.GetKey(KeyCode.E)) { isMovedOrRotated = true; moveDir += transform.up;      }
+        if (Input.GetKey(KeyCode.Q)) { isMovedOrRotated = true; moveDir -= transform.up;      }
 
         // 滾輪控制移動速度（可選）
         moveSpeed += Input.mouseScrollDelta.y * scrollSpeed;
