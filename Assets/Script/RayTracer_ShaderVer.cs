@@ -36,6 +36,11 @@ public class RayTracer_ShaderVer : MonoBehaviour
             return;
         ++_renderTime;
 
+        Render();
+    }
+
+    public void Render()
+    {
         InitRenderTexture();
         InitDisplayQuad();
         SetupBasicParameters();
@@ -55,7 +60,6 @@ public class RayTracer_ShaderVer : MonoBehaviour
             (_target, _target2) = (_target2, _target);
             _displayQuad.GetComponent<MeshRenderer>().material.mainTexture = _target;
         }
-
     }
 
     private void InitRenderTexture()
@@ -133,9 +137,12 @@ public class RayTracer_ShaderVer : MonoBehaviour
         float quadWidth = quadHeight * _camera.aspect;
 
         // 設定 Quad 的本地位置和縮放
+        _displayQuad.transform.SetParent(gameObject.transform);
         _displayQuad.transform.localPosition = new Vector3(0, 0, quadPositionZ);
         _displayQuad.transform.localScale = new Vector3(quadWidth, quadHeight, 1f);
         _displayQuad.transform.localRotation = Quaternion.identity;
+
+        _displayQuad.transform.SetParent(null);
     }
 
     /// <summary>
