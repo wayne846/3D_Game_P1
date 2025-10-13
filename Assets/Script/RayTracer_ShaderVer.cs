@@ -158,4 +158,13 @@ public class RayTracer_ShaderVer : MonoBehaviour
         RayTracingShader.SetMatrix("_CameraToWorld", _camera.cameraToWorldMatrix);
         RayTracingShader.SetVector("_ScreenSize", new Vector2(Screen.width, Screen.height));
     }
+
+    public void DestroyQuad()
+    {
+        if(_displayQuad != null)
+        {
+            Destroy(_displayQuad);
+            _displayQuad = null;
+        }
+    }
 }
