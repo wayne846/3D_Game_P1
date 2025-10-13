@@ -58,14 +58,19 @@ float3 Shade(Ray currentRay, ExtraHitInfo extraHitInfo)
                 float3 Kd = GetKd(extraHitInfo);
                 float NdotL = max(dot(N, shadowRay.dir), 0);
                 float3 diffuse = Kd * _LightColors[i] * NdotL;
+                
+                // Geometry Term
+                float G = 1;
+                if (light.w == 1) // Point Light
+                    G = 1 / (shadowRayDistance * shadowRayDistance + 1.0);
 
-                color += diffuse * Ks;
+                color += diffuse * Ks * G;
             }
         }
         
         // specular ray
         Ks = _MeshObjects[extraHitInfo.hitMesh].Ks;
-        if (distance(Ks, float3(0, 0, 0)) > 0.001)
+        if (length(Ks) > 0.001)
         {
             // 產生 specular ray
             Ray specularRay;

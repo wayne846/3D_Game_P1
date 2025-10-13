@@ -87,7 +87,7 @@ class PBRTLoader_PhongShading
                         lightComp.type = LightType.Point;
                         // 設定顏色
                         Vector3 color = (Vector3)shape.attachedLight.parameters["L"];
-                        lightComp.color = new Color(Mathf.Clamp01(color.x), Mathf.Clamp01(color.y), Mathf.Clamp01(color.z), 1);
+                        lightComp.color = new Color(color.x, color.y, color.z, 1);
                     }
                     break;
             }

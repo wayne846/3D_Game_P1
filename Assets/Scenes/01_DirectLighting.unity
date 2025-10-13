@@ -377,7 +377,7 @@ Transform:
   m_GameObject: {fileID: 131811240}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 9.2, z: 0}
+  m_LocalPosition: {x: 0.528, y: 1.86, z: 3.886}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1293,6 +1293,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   RayTracingShader: {fileID: 7200000, guid: c6dcb9863d084ef46aa33e18781e26bb, type: 3}
   OnlyRenderOneTime: 0
+  DoSSAO: 0
 --- !u!114 &2079396273
 MonoBehaviour:
   m_ObjectHideFlags: 0

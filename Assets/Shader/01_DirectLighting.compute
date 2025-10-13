@@ -61,8 +61,13 @@ float3 Shade(ExtraHitInfo extraHitInfo)
             float3 V = normalize(mul(_CameraToWorld, float4(0, 0, 0, 1)).xyz - extraHitInfo.hitInfo.position); // 物 -> 眼
             float spec = pow(max(dot(R, V), 0), 100);
             float3 specular = _MeshObjects[extraHitInfo.hitMesh].Ks.xyz * _LightColors[i] * spec;
+            
+            // Geometry Term
+            float G = 1;
+            if (light.w == 1) // Point Light
+                G = 1 / (shadowRayDistance * shadowRayDistance + 1.0);
 
-            color += diffuse + specular;
+            color += (diffuse + specular) * G;
         }
     }
 
