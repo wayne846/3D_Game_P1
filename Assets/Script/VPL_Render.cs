@@ -1,6 +1,4 @@
-using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
 
@@ -15,7 +13,7 @@ public class VPL_Render : MonoBehaviour
     public int numberOfVPLs = 128; // 要生成的 VPL 數量
     public float rayMaxDistance = 100f;
 
-    private PbrtScene scene = null;
+    PbrtScene scene = null;
 
     [Header("Shadow Settings")]
     public int shadowMapResolution = 256; // 陰影貼圖的解析度
@@ -23,10 +21,15 @@ public class VPL_Render : MonoBehaviour
     public float shadowNearClip = 0.1f;
     public float shadowFarClip = 100f;
 
-    private List<VPL> vplList = new List<VPL>();
-    private ComputeBuffer vplBuffer;
-    private Texture2DArray shadowmapArray; // 儲存所有陰影貼圖的紋理陣列
-    private Camera shadowCamera;
+    List<VPL> vplList = new List<VPL>();
+    List<GameObject> vplVisualizeSphere = new List<GameObject>();
+    ComputeBuffer vplBuffer;
+    Texture2DArray shadowmapArray; // 儲存所有陰影貼圖的紋理陣列
+    Camera shadowCamera;
+
+    bool isVisualizeVpl = false;
+    bool isOnlyOneVpl = false;
+    int onlyOneVplIndex = 0;
 
     public struct VPL
     {
@@ -144,6 +147,11 @@ public class VPL_Render : MonoBehaviour
                     newVpl.color = new Color(lightColors[j].x, lightColors[j].y, lightColors[j].z);
 
                     vplList.Add(newVpl);
+
+                    // 建立可視化VPL球體
+                    GameObject sphere = CreateVplVisualizeSphere(newVpl.position, 0.05f, Color.yellow);
+                    sphere.SetActive(false);
+                    vplVisualizeSphere.Add(sphere);
                 }
             }
         }
@@ -174,7 +182,7 @@ public class VPL_Render : MonoBehaviour
             Quaternion.LookRotation(Vector3.up, Vector3.back), Quaternion.LookRotation(Vector3.down, Vector3.forward),
             Quaternion.LookRotation(Vector3.forward), Quaternion.LookRotation(Vector3.back)
         };
-        shadowCamera.enabled = true; // 我們只手動呼叫它的 Render()
+
         for (int i = 0; i < vplList.Count; i++)
         {
             shadowCamera.transform.position = vplList[i].position;
@@ -188,7 +196,6 @@ public class VPL_Render : MonoBehaviour
                 Graphics.CopyTexture(rt, 0, 0, shadowmapArray, sliceIndex, 0);
             }
         }
-        shadowCamera.enabled = false; // 我們只手動呼叫它的 Render()
 
         rt.Release(); // 釋放臨時的 Render Texture
     }
@@ -201,7 +208,18 @@ public class VPL_Render : MonoBehaviour
         VPLDataForGPU[] vplData = new VPLDataForGPU[vplList.Count];
         for (int i = 0; i < vplList.Count; i++)
         {
-            vplData[i] = new VPLDataForGPU { position = vplList[i].position, color = vplList[i].color };
+            if (isOnlyOneVpl)
+            {
+                // 只有特定的vpl才會傳
+                if(i == onlyOneVplIndex)
+                {
+                    vplData[i] = new VPLDataForGPU { position = vplList[i].position, color = vplList[i].color };
+                }
+            }
+            else
+            {
+                vplData[i] = new VPLDataForGPU { position = vplList[i].position, color = vplList[i].color };
+            }
         }
 
         // 建立並設定 ComputeBuffer
@@ -229,6 +247,8 @@ public class VPL_Render : MonoBehaviour
         }
     }
 
+
+    #region Visualize
     void OnDrawGizmos()
     {
         if (vplList != null)
@@ -240,4 +260,129 @@ public class VPL_Render : MonoBehaviour
             }
         }
     }
+
+    /// <summary>
+    /// 動態建立一個球體 GameObject
+    /// </summary>
+    /// <param name="position">球體在世界空間中的位置</param>
+    /// <param name="radius">球體的半徑 (透過縮放來實現)</param>
+    /// <param name="color">球體的顏色</param>
+    /// <returns>建立的球體 GameObject</returns>
+    public GameObject CreateVplVisualizeSphere(Vector3 position, float radius, Color color)
+    {
+        // 1. 建立一個預設的 3D 球體基本體 (Primitive)
+        // Unity 內建的球體半徑預設為 0.5 (直徑為 1 單位)
+        GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+
+        // 2. 指定位置
+        sphere.transform.position = position;
+
+        // 3. 指定半徑 (透過縮放 Sacle 來實現)
+        // 由於預設球體的直徑為 1，要達到指定的半徑 R，
+        // 則直徑為 2R，因此縮放因子為 (2 * radius)
+        float scaleFactor = radius * 2f;
+        sphere.transform.localScale = new Vector3(scaleFactor, scaleFactor, scaleFactor);
+
+        // 4. 指定顏色 (設定材質)
+
+        // 取得球體上的 MeshRenderer 元件
+        MeshRenderer renderer = sphere.GetComponent<MeshRenderer>();
+
+        if (renderer != null)
+        {
+            // 為了不影響其他使用相同材質的物件，建議使用 .material 而非 .sharedMaterial
+            // 註: 每次使用 .material 會建立一個新的材質實例
+            Material material = renderer.material;
+
+            // 將材質的顏色設定為指定顏色
+            // 這是針對 Standard Shader 最常見的設定方式
+            material.color = color;
+
+            // 確保材質的渲染模式是支援透明度的 (如果顏色有透明度)
+            // 如果只需要純色，可以忽略這一步
+            // material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            // material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+            // material.SetInt("_ZWrite", 1);
+            // material.DisableKeyword("_ALPHABLEND_ON");
+            // material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            // material.SetInt("_Mode", (int)UnityEngine.Rendering.SurfaceType.Opaque); 
+        }
+
+        // 5. 返回建立的球體物件
+        return sphere;
+    }
+
+    public void SetVplVisualizeSphereActive(bool isActive)
+    {
+        isVisualizeVpl = isActive;
+
+        for (int i = 0; i < vplVisualizeSphere.Count; i++)
+        {
+            if(isOnlyOneVpl)
+            {
+                bool b = (i == onlyOneVplIndex) ? isActive : false;
+                vplVisualizeSphere[i].SetActive(b);
+            }
+            else
+            {
+                vplVisualizeSphere[i].SetActive(isActive);
+            }
+        }
+    }
+
+    public void SetIsOnlyOneVpl(bool b)
+    {
+        isOnlyOneVpl = b;
+
+        SetupShaderGlobals();
+
+
+        if (isVisualizeVpl)
+        {
+            SetVplVisualizeSphereActive(true);
+        }
+    }
+
+    public void IncreaseOnlyOneVplIndex()
+    {
+        if(onlyOneVplIndex + 1 < vplList.Count)
+        {
+            onlyOneVplIndex += 1;
+        }
+
+        if (isOnlyOneVpl)
+        {
+            SetupShaderGlobals();
+        }
+
+        if (isVisualizeVpl)
+        {
+            SetVplVisualizeSphereActive(true);
+        }
+    }
+
+    public void DecreseOnlyOneVplIndex()
+    {
+        if(onlyOneVplIndex - 1 >= 0)
+        {
+            onlyOneVplIndex -= 1;
+        }
+
+        if (isOnlyOneVpl)
+        {
+            SetupShaderGlobals();
+        }
+
+        if (isVisualizeVpl)
+        {
+            SetVplVisualizeSphereActive(true);
+        }
+    }
+
+    public int GetOnlyOneVplIndex()
+    {
+        return onlyOneVplIndex;
+    }
+
+    #endregion
 }

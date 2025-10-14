@@ -11,7 +11,10 @@ public class UIManager : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        
+        if (uiCtrl != null)
+        {
+            uiCtrl.SetActive(uiActive);
+        }
     }
 
     // Update is called once per frame
