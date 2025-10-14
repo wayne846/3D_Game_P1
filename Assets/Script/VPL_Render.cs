@@ -44,20 +44,6 @@ public class VPL_Render : MonoBehaviour
         public Vector4 color;
     }
 
-    void OnEnable()
-    {
-        GenerateVPLs();
-
-        // ComputeBuffer 需要知道結構大小
-        // Vector3 (3*4 bytes) + Color (4*4 bytes) = 12 + 16 = 28 bytes
-        vplBuffer = new ComputeBuffer(numberOfVPLs, 28);
-        vplBuffer.SetData(vplList);
-
-        // 將 VPL 數據和數量設為 Shader 全域變數
-        Shader.SetGlobalBuffer("_VPLs", vplBuffer);
-        Shader.SetGlobalInt("_VPLCount", vplList.Count);
-    }
-
     void OnDisable()
     {
         // 釋放緩衝區
@@ -80,6 +66,15 @@ public class VPL_Render : MonoBehaviour
 
         // 2. 生成 VPLs
         GenerateVPLs();
+
+        // ComputeBuffer 需要知道結構大小
+        // Vector3 (3*4 bytes) + Color (4*4 bytes) = 12 + 16 = 28 bytes
+        vplBuffer = new ComputeBuffer(numberOfVPLs, 28);
+        vplBuffer.SetData(vplList);
+
+        // 將 VPL 數據和數量設為 Shader 全域變數
+        Shader.SetGlobalBuffer("_VPLs", vplBuffer);
+        Shader.SetGlobalInt("_VPLCount", vplList.Count);
 
         // 3. 為所有 VPL 渲染陰影貼圖
         RenderAllShadowMaps();
@@ -160,7 +155,23 @@ public class VPL_Render : MonoBehaviour
 
     void RenderAllShadowMaps()
     {
-        if (vplList.Count == 0) return;
+        if (vplList.Count == 0)
+        {
+            // 額外處理：如果沒有 VPL，也應該確保舊的 Texture2DArray 被清理
+            if (shadowmapArray != null)
+            {
+                UnityEngine.Object.Destroy(shadowmapArray);
+                shadowmapArray = null;
+            }
+            return;
+        }
+
+        // *** 關鍵修復點：在創建新的 Texture2DArray 之前，銷毀舊的 ***
+        if (shadowmapArray != null)
+        {
+            // 使用 UnityEngine.Object.Destroy 銷毀 Unity 原生資源
+            UnityEngine.Object.Destroy(shadowmapArray);
+        }
 
         // 建立 Texture2DArray 來儲存所有 Cubemap 的6個面
         // 每個 VPL 需要6個 slice (一個 Cubemap 的6個面)
@@ -345,9 +356,13 @@ public class VPL_Render : MonoBehaviour
 
     public void IncreaseOnlyOneVplIndex()
     {
-        if(onlyOneVplIndex + 1 < vplList.Count)
+
+        onlyOneVplIndex += 1;
+
+
+        if (onlyOneVplIndex >= vplList.Count)
         {
-            onlyOneVplIndex += 1;
+            onlyOneVplIndex = vplList.Count - 1;
         }
 
         if (isOnlyOneVpl)
@@ -361,11 +376,14 @@ public class VPL_Render : MonoBehaviour
         }
     }
 
+
     public void DecreseOnlyOneVplIndex()
     {
-        if(onlyOneVplIndex - 1 >= 0)
+        onlyOneVplIndex -= 1;
+
+        if (onlyOneVplIndex < 0)
         {
-            onlyOneVplIndex -= 1;
+            onlyOneVplIndex = 0;
         }
 
         if (isOnlyOneVpl)
