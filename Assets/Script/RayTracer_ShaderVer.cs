@@ -91,6 +91,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
             _SSAOMat.SetTexture("_NormalTex", NormalTexture);
             _SSAOMat.SetVector("_TexSize", new Vector2(Screen.width, Screen.height));
             _SSAOMat.SetVector("_CameraPos", _camera.transform.position);
+            _SSAOMat.SetMatrix("_Camera_VP", GL.GetGPUProjectionMatrix(_camera.projectionMatrix, false) * _camera.worldToCameraMatrix);
 
             Graphics.Blit(_target2, _target, _SSAOMat);
         }
