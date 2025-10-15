@@ -33,7 +33,7 @@ Shader "Custom/VPLShading"
 
             // 宣告 Texture2DArray
             UNITY_DECLARE_TEX2DARRAY(_ShadowMapArray); // shadow map, 每個 VPL 有 6 個面
-            StructuredBuffer<float4> _ShadowCamera_VP; // 拍攝 shadow map 時，shadow camera 的 Projection * View matrix
+            StructuredBuffer<float4x4> _ShadowCamera_VP; // 拍攝 shadow map 時，shadow camera 的 Projection * View matrix
 
             float4 _Color;
             float4 _SpecColor;
@@ -67,7 +67,7 @@ Shader "Custom/VPLShading"
             }
 
             // 陰影計算函式
-            bool InShadow(float3 worldPos, float3 vplPos, int vplIndex)
+            bool InShadow(float3 worldPos, float3 worldNormal, float3 vplPos, int vplIndex)
             {   
                 float3 lightVec = worldPos - vplPos;
 
@@ -122,15 +122,22 @@ Shader "Custom/VPLShading"
                 // 從紋理陣列中取樣深度值
                 float shadowDepth = UNITY_SAMPLE_TEX2DARRAY(_ShadowMapArray, float3(uv, sliceIndex)).r;
 
-                // ERROR: 這裡有問題，不論怎樣，他z都是1（最接近camera），可能是VP傳錯
-                float4 clipPos = mul(_ShadowCamera_VP[sliceIndex], float4(worldPos, 1));
-                
+                // 避免 Shadow Acne，Slope-Scaled Depth Bias
+                float bias = lerp(0.01f, 0.001f , dot(-normalize(lightVec), normalize(worldNormal)));
+
+                // 將點稍微往光的方向拉近
+                float4 clipPos = mul(_ShadowCamera_VP[sliceIndex], float4(worldPos - bias * normalize(lightVec), 1));
+                float depth = clipPos.z / clipPos.w;
+                // OpenGL 中 NDC.z : [-1, 1]，映射到 [0, 1]
+                if (UNITY_NEAR_CLIP_VALUE == -1)
+                    depth = depth * 0.5f + 0.5f;
+
                 // Direct 3D : 近 -> 1, 遠 -> 0
-                if (UNITY_NEAR_CLIP_VALUE == 1)
-                    return shadowDepth > (clipPos.z / clipPos.w);
-                // OpenGL : 近 -> -1, 遠 -> 1
+                if (UNITY_REVERSED_Z)
+                    return shadowDepth > depth;
+                // OpenGL : 近 -> 0, 遠 -> 1
                 else
-                    return shadowDepth < (clipPos.z / clipPos.w);
+                    return shadowDepth < depth;
                 // 如果 shadow map 取到的深度比較近，則 worldPos 在 shadow 裡
             }
 
@@ -153,7 +160,7 @@ Shader "Custom/VPLShading"
                     float3 L = normalize(lightDir);
                     
                     // 只有不在陰影中時才計算光照
-                    if (!InShadow(i.worldPos, _VPLs[j].position, j))
+                    if (!InShadow(i.worldPos, i.worldNormal, _VPLs[j].position, j))
                     {
                         float attenuation = 1.0 / (distance * distance + 1.0);
                         
