@@ -136,7 +136,7 @@ public class VPL_Render : MonoBehaviour
                 {
                     // 在碰撞點建立一個 VPL
                     VPL newVpl = new VPL();
-                    newVpl.position = hitInfo.position + hitInfo.normal * 0.001f; // 稍微偏移以避免 z-fighting
+                    newVpl.position = hitInfo.position + hitInfo.normal * 0.05f; // 稍微偏移以避免 z-fighting
 
                     // 顏色可以先用光源顏色，之後可以根據材質和衰減計算
                     newVpl.color = new Color(lightColors[j].x, lightColors[j].y, lightColors[j].z);
