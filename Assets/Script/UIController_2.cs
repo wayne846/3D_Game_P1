@@ -60,4 +60,14 @@ public class UIController_2 : MonoBehaviour
         rayTracer.DecreaseVplNum();
         numText.text = rayTracer.numberOfVPLs.ToString();
     }
+
+    public void ClickDynamicToggle(bool b)
+    {
+        rayTracer.isDynamic = b;
+    }
+
+    public void ClickMoveLightToggle(bool b)
+    {
+        rayTracer.isMoveLight = b;
+    }
 }

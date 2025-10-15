@@ -7,6 +7,18 @@ using UnityEngine;
 
 public class VPL_Render : MonoBehaviour
 {
+    [Header("Move Light")]
+    public Light pointLight = null;
+    Vector3 postion1 = new Vector3(0, 9.2f, 1);
+    Vector3 postion2 = new Vector3(0, 9.2f, -7);
+    Vector3 postion3 = new Vector3(0, 3, -7);
+    Vector3 postion4 = new Vector3(3, 3, -7);
+    Vector3 postion5 = new Vector3(3, 3, 1);
+    Vector3 postion6 = new Vector3(0, 3, 1);
+    float speed = 0.02f;
+    int moveStage = 0;
+    GameObject visualizeLight = null;
+
     [Header("Options")]
     public bool includeInactiveLights = true;
 
@@ -20,6 +32,9 @@ public class VPL_Render : MonoBehaviour
     public LayerMask shadowCasterLayers; // 指定哪些圖層的物件會產生陰影
     public float shadowNearClip = 0.01f;
     public float shadowFarClip = 100f;
+
+    public bool isDynamic = true;
+    public bool isMoveLight = false;
 
     List<VPL> vplList = new List<VPL>();
     List<GameObject> vplVisualizeSphere = new List<GameObject>();
@@ -68,6 +83,12 @@ public class VPL_Render : MonoBehaviour
         string sceneFilePath = System.IO.Path.Combine(Application.streamingAssetsPath, sceneFileName);
         LoatScene(sceneFilePath);
 
+        visualizeLight = CreateVplVisualizeSphere(pointLight.transform.position, 0.1f, Color.red);
+        visualizeLight.transform.SetParent(pointLight.transform);
+        visualizeLight.transform.localPosition = Vector3.zero;
+        visualizeLight.layer = 2;
+        visualizeLight.SetActive(false);
+
         // 1. 建立一個用於渲染陰影的隱藏相機
         CreateShadowCamera();
 
@@ -78,6 +99,45 @@ public class VPL_Render : MonoBehaviour
         RenderAllShadowMaps();
 
         // 4. 將 VPL 數據和陰影貼圖傳遞給所有 Shader
+        SetupShaderGlobals();
+    }
+
+    void Update()
+    {
+        // 移動光源
+        if (isMoveLight)
+        {
+            Vector3 target = Vector3.zero;
+            switch (moveStage)
+            {
+                case 0:
+                    target = postion1;
+                    break;
+                case 1:
+                    target = postion2;
+                    break;
+                case 2:
+                    target = postion3;
+                    break;
+                case 3:
+                    target = postion4;
+                    break;
+                case 4:
+                    target = postion5;
+                    break;
+                case 5:
+                    target = postion6;
+                    break;
+            }
+            Vector3 newPos = Vector3.MoveTowards(pointLight.transform.position, target, speed);
+            pointLight.transform.position = newPos;
+            if (newPos == target) moveStage = (moveStage + 1) % 6;
+        }
+        
+
+        DeleteInvalidVPL();
+        GenerateVPLs(!isDynamic);
+        RenderAllShadowMaps();
         SetupShaderGlobals();
     }
 
@@ -94,7 +154,7 @@ public class VPL_Render : MonoBehaviour
         shadowCamera.fieldOfView = 90.0f;
     }
 
-    void GenerateVPLs()
+    void GenerateVPLs(bool forceClearVPL = false)
     {
         var lights = new List<Vector4>();
         var lightColors = new List<Vector3>();
@@ -117,12 +177,15 @@ public class VPL_Render : MonoBehaviour
             lightColors.Add(new Vector3(c.r, c.g, c.b) * lt.intensity / numberOfVPLs);
         }
 
-        vplList.Clear();
-        ClearAllVplVisualizeSphere();
+        if (forceClearVPL) {
+            vplList.Clear();
+            ClearAllVplVisualizeSphere();
+        }
+        
         for (int j = 0; j < lights.Count; j++)
         {
 
-            for (int i = 0; i < numberOfVPLs; i++)
+            for (int i = vplList.Count; i < numberOfVPLs; i++)
             {
                 // 從光源位置發射隨機方向的光線
                 Vector3 randomDirection = Random.onUnitSphere;
@@ -172,6 +235,11 @@ public class VPL_Render : MonoBehaviour
             UnityEngine.Object.Destroy(shadowmapArray);
         }
 
+        if (shadowmapArray != null)
+        {
+            UnityEngine.Object.Destroy(shadowmapArray);
+        }
+
         // 建立 Texture2DArray 來儲存所有 Cubemap 的6個面
         // 每個 VPL 需要6個 slice (一個 Cubemap 的6個面)
         shadowmapArray = new Texture2DArray(
@@ -192,7 +260,7 @@ public class VPL_Render : MonoBehaviour
             Quaternion.LookRotation(Vector3.up, Vector3.back), Quaternion.LookRotation(Vector3.down, Vector3.forward),
             Quaternion.LookRotation(Vector3.forward), Quaternion.LookRotation(Vector3.back)
         };
-
+        shadowCameraVP.Clear();
         for (int i = 0; i < vplList.Count; i++)
         {
             shadowCamera.transform.position = vplList[i].position;
@@ -209,12 +277,21 @@ public class VPL_Render : MonoBehaviour
             }
         }
 
-        rt.Release(); // 釋放臨時的 Render Texture
+        // *** 修復點 4：在結束時銷毀 rt ***
+        // 必須先移除 Camera 的引用，再銷毀 RenderTexture
+        shadowCamera.targetTexture = null;
+        rt.Release(); // 釋放臨時的 Render Texture 佔用的 GPU 記憶體
+        UnityEngine.Object.Destroy(rt); // 銷毀 Unity 原生物件
+
+        
     }
 
     void SetupShaderGlobals()
     {
         if (vplList.Count == 0) return;
+
+        if (vplBuffer != null) vplBuffer.Release();
+        if (shadowCameraVPBuffer != null) shadowCameraVPBuffer.Release();
 
         // 準備要傳給 GPU 的數據
         VPLDataForGPU[] vplData = new VPLDataForGPU[vplList.Count];
@@ -247,6 +324,28 @@ public class VPL_Render : MonoBehaviour
         Shader.SetGlobalInt("_VPLCount", vplList.Count);
     }
 
+    void DeleteInvalidVPL()
+    {
+        for(int i = vplList.Count - 1; i >= 0; i--)
+        {
+            if (IsObstructed(vplList[i].position, pointLight.transform.position))
+            {
+                vplList.RemoveAt(i);
+
+                // *** 修復點 6：在銷毀 GameObject 之前，銷毀 material 實例 ***
+                GameObject sphere = vplVisualizeSphere[i];
+                MeshRenderer renderer = sphere.GetComponent<MeshRenderer>();
+                if (renderer != null)
+                {
+                    UnityEngine.Object.Destroy(renderer.material);
+                }
+
+                Destroy(vplVisualizeSphere[i]);
+                vplVisualizeSphere.RemoveAt(i);
+            }
+        }
+    }
+
     void LoatScene(string sceneFilePath)
     {
         if (System.IO.File.Exists(sceneFilePath))
@@ -259,6 +358,41 @@ public class VPL_Render : MonoBehaviour
         {
             UnityEngine.Debug.LogError($"PBRT 場景檔案未找到: {sceneFilePath}");
         }
+    }
+
+    /// <summary>
+    /// 檢查 StartPoint 和 EndPoint 之間是否有任何物體遮擋。
+    /// </summary>
+    /// <param name="startPoint">射線的起點。</param>
+    /// <param name="endPoint">射線的終點。</param>
+    /// <param name="layerMask">要檢查的圖層遮罩。預設為 Default（一切可見的物體）。</param>
+    /// <returns>如果有物體阻擋，返回 true；如果路徑暢通，返回 false。</returns>
+    public static bool IsObstructed(Vector3 startPoint, Vector3 endPoint, int layerMask = ~0)
+    {
+        // 1. 計算方向和距離
+        Vector3 direction = endPoint - startPoint;
+        float distance = direction.magnitude;
+
+        // 將方向向量正規化
+        direction.Normalize();
+
+        // 2. 執行射線投射
+        // Physics.Raycast(起點, 方向, 距離, 圖層遮罩)
+        // Raycast 會忽略其起點所在的 Collider。
+
+        // 為了避免射線在起點的物體內部被立即阻擋，建議將起點稍微往外推（微小的偏移，例如 0.01f），
+        // 尤其當 startPoint 位於物體的表面或邊緣時。
+        // 但由於 Unity 的 Raycast 本身設計上會忽略起點所在 Collider，通常可以省略微移。
+
+        // 執行 Raycast，如果有碰撞發生，Physics.Raycast 會回傳 true
+        if (Physics.Raycast(startPoint, direction, distance - 0.5f, layerMask))
+        {
+            // 有物體被擊中，表示有遮擋
+            return true;
+        }
+
+        // 沒有物體被擊中，路徑暢通
+        return false;
     }
 
 
@@ -324,6 +458,8 @@ public class VPL_Render : MonoBehaviour
             // material.SetInt("_Mode", (int)UnityEngine.Rendering.SurfaceType.Opaque); 
         }
 
+        sphere.layer = 2;
+
         // 5. 返回建立的球體物件
         return sphere;
     }
@@ -332,7 +468,16 @@ public class VPL_Render : MonoBehaviour
     {
         for(int i = 0; i < vplVisualizeSphere.Count; i++)
         {
-            Destroy(vplVisualizeSphere[i]);
+            GameObject sphere = vplVisualizeSphere[i];
+            // *** 修復點 5：銷毀 material 實例 ***
+            MeshRenderer renderer = sphere.GetComponent<MeshRenderer>();
+            if (renderer != null)
+            {
+                // material 會返回一個新的實例或現有的實例，這是必須被銷毀的原生資源
+                UnityEngine.Object.Destroy(renderer.material);
+            }
+
+            Destroy(sphere);
         }
         vplVisualizeSphere.Clear();
     }
@@ -353,6 +498,8 @@ public class VPL_Render : MonoBehaviour
                 vplVisualizeSphere[i].SetActive(isActive);
             }
         }
+
+        visualizeLight.SetActive(isActive);
     }
 
     public void SetIsOnlyOneVpl(bool b)
@@ -424,7 +571,7 @@ public class VPL_Render : MonoBehaviour
     {
         numberOfVPLs = numberOfVPLs * 2;
         onlyOneVplIndex = Mathf.Clamp(onlyOneVplIndex, 0, numberOfVPLs - 1);
-        GenerateVPLs();
+        GenerateVPLs(true);
         RenderAllShadowMaps();
         SetupShaderGlobals();
     }
@@ -435,7 +582,7 @@ public class VPL_Render : MonoBehaviour
         {
             numberOfVPLs = numberOfVPLs / 2;
             onlyOneVplIndex = Mathf.Clamp(onlyOneVplIndex, 0, numberOfVPLs - 1);
-            GenerateVPLs();
+            GenerateVPLs(true);
             RenderAllShadowMaps();
             SetupShaderGlobals();
         }
