@@ -17,9 +17,10 @@ Shader "Custom/VPLShading"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma target 4.5 // »İ­n¸û°ªªº Shader Target ¨Ó¤ä´© Texture2DArray
+            #pragma target 4.5 // éœ€è¦è¼ƒé«˜çš„ Shader Target ä¾†æ”¯æ´ Texture2DArray
 
             #include "UnityCG.cginc"
+            #include "HLSLSupport.cginc"
 
             struct VPLDataForGPU
             {
@@ -27,12 +28,12 @@ Shader "Custom/VPLShading"
                 float4 color;
             };
 
-            StructuredBuffer<VPLDataForGPU> _VPLs;
-            int _VPLCount;
-            float _ShadowFarPlane;
+            StructuredBuffer<VPLDataForGPU> _VPLs; // æ‰€æœ‰ VPL çš„åº§æ¨™å’Œé¡è‰²
+            int _VPLCount; // æœ‰å¹¾å€‹ VPl ï¼ˆ_VPLs çš„é•·åº¦ï¼‰
 
-            // «Å§i Texture2DArray
-            UNITY_DECLARE_TEX2DARRAY(_ShadowMapArray);
+            // å®£å‘Š Texture2DArray
+            UNITY_DECLARE_TEX2DARRAY(_ShadowMapArray); // shadow map, æ¯å€‹ VPL æœ‰ 6 å€‹é¢
+            StructuredBuffer<float4> _ShadowCamera_VP; // æ‹æ” shadow map æ™‚ï¼Œshadow camera çš„ Projection * View matrix
 
             float4 _Color;
             float4 _SpecColor;
@@ -65,42 +66,72 @@ Shader "Custom/VPLShading"
                 return o;
             }
 
-            // ³±¼v­pºâ¨ç¦¡
-            float GetShadow(float3 worldPos, float3 vplPos, int vplIndex)
-            {
+            // é™°å½±è¨ˆç®—å‡½å¼
+            bool InShadow(float3 worldPos, float3 vplPos, int vplIndex)
+            {   
                 float3 lightVec = worldPos - vplPos;
-                float currentDepth = length(lightVec) / _ShadowFarPlane; // ±N·í«e²`«×¥¿³W¤Æ¨ì [0,1]
-                
-                // ¨M©w­n¨ú¼Ë Cubemap ªº­ş­Ó­± (­ş­Ó slice)
+
+                // æ±ºå®šè¦å–æ¨£ Cubemap çš„å“ªå€‹é¢ (å“ªå€‹ slice)
                 float3 absVec = abs(lightVec);
                 int faceIndex;
                 float2 uv;
                 
                 if (absVec.x > absVec.y && absVec.x > absVec.z) // X-face
                 {
-                    faceIndex = lightVec.x > 0 ? 0 : 1;
-                    uv = float2(-lightVec.z, -lightVec.y) / absVec.x;
+                    if (lightVec.x > 0) 
+                    {
+                        faceIndex = 0;
+                        uv = float2(-lightVec.z, lightVec.y) / absVec.x;
+                    }
+                    else
+                    {
+                        faceIndex = 1;
+                        uv = float2(lightVec.z, lightVec.y) / absVec.x;
+                    }
                 }
                 else if (absVec.y > absVec.z) // Y-face
                 {
-                    faceIndex = lightVec.y > 0 ? 2 : 3;
-                    uv = float2(lightVec.x, lightVec.z) / absVec.y;
+                    if (lightVec.y > 0) 
+                    {
+                        faceIndex = 2;
+                        uv = float2(lightVec.x, -lightVec.z) / absVec.y;
+                    }
+                    else
+                    {
+                        faceIndex = 3;
+                        uv = float2(lightVec.x, lightVec.z) / absVec.y;
+                    }
                 }
                 else // Z-face
                 {
-                    faceIndex = lightVec.z > 0 ? 4 : 5;
-                    uv = float2(lightVec.x, -lightVec.y) / absVec.z;
+                    if (lightVec.z > 0)
+                    {
+                        faceIndex = 4;
+                        uv = float2(lightVec.x, lightVec.y) / absVec.z;
+                    }
+                    else
+                    {
+                        faceIndex = 5;
+                        uv = float2(-lightVec.x, lightVec.y) / absVec.z;
+                    }
                 }
 
-                uv = (uv + 1.0) * 0.5; // ±N UV ¬M®g¨ì [0,1]
+                uv = (uv + 1.0) * 0.5; // å°‡ UV [-1, 1] æ˜ å°„åˆ° [0,1]
                 int sliceIndex = vplIndex * 6 + faceIndex;
 
-                // ±q¯¾²z°}¦C¤¤¨ú¼Ë²`«×­È
+                // å¾ç´‹ç†é™£åˆ—ä¸­å–æ¨£æ·±åº¦å€¼
                 float shadowDepth = UNITY_SAMPLE_TEX2DARRAY(_ShadowMapArray, float3(uv, sliceIndex)).r;
+
+                // ERROR: é€™è£¡æœ‰å•é¡Œï¼Œä¸è«–æ€æ¨£ï¼Œä»–zéƒ½æ˜¯1ï¼ˆæœ€æ¥è¿‘cameraï¼‰ï¼Œå¯èƒ½æ˜¯VPå‚³éŒ¯
+                float4 clipPos = mul(_ShadowCamera_VP[sliceIndex], float4(worldPos, 1));
                 
-                // ¤ñ¸û²`«×¡A¥[¤W¤@­Ó¤pªº bias Á×§K self-shadowing artifacts
-                float bias = 0.005;
-                return currentDepth - bias > shadowDepth ? 0.0 : 1.0; // ¦b³±¼v¤¤«hªğ¦^ 0
+                // Direct 3D : è¿‘ -> 1, é  -> 0
+                if (UNITY_NEAR_CLIP_VALUE == 1)
+                    return shadowDepth > (clipPos.z / clipPos.w);
+                // OpenGL : è¿‘ -> -1, é  -> 1
+                else
+                    return shadowDepth < (clipPos.z / clipPos.w);
+                // å¦‚æœ shadow map å–åˆ°çš„æ·±åº¦æ¯”è¼ƒè¿‘ï¼Œå‰‡ worldPos åœ¨ shadow è£¡
             }
 
 
@@ -121,11 +152,8 @@ Shader "Custom/VPLShading"
                     float distance = length(lightDir);
                     float3 L = normalize(lightDir);
                     
-                    // ­pºâ³±¼v
-                    float shadow = GetShadow(i.worldPos, _VPLs[j].position, j);
-                    
-                    // ¥u¦³¤£¦b³±¼v¤¤®É¤~­pºâ¥ú·Ó
-                    if (shadow > 0.5)
+                    // åªæœ‰ä¸åœ¨é™°å½±ä¸­æ™‚æ‰è¨ˆç®—å…‰ç…§
+                    if (!InShadow(i.worldPos, _VPLs[j].position, j))
                     {
                         float attenuation = 1.0 / (distance * distance + 1.0);
                         

@@ -18,13 +18,15 @@ public class VPL_Render : MonoBehaviour
     [Header("Shadow Settings")]
     public int shadowMapResolution = 256; // 陰影貼圖的解析度
     public LayerMask shadowCasterLayers; // 指定哪些圖層的物件會產生陰影
-    public float shadowNearClip = 0.1f;
+    public float shadowNearClip = 0.01f;
     public float shadowFarClip = 100f;
 
     List<VPL> vplList = new List<VPL>();
     List<GameObject> vplVisualizeSphere = new List<GameObject>();
     ComputeBuffer vplBuffer;
     Texture2DArray shadowmapArray; // 儲存所有陰影貼圖的紋理陣列
+    List<Matrix4x4> shadowCameraVP = new List<Matrix4x4>(); // 渲染 shadow map 時，shadow camera 的 Projection * View Matrix
+    ComputeBuffer shadowCameraVPBuffer;
     Camera shadowCamera;
 
     bool isVisualizeVpl = false;
@@ -52,6 +54,11 @@ public class VPL_Render : MonoBehaviour
             vplBuffer.Release();
             vplBuffer = null;
         }
+        if (shadowCameraVPBuffer != null)
+        {
+            shadowCameraVPBuffer.Release();
+            shadowCameraVPBuffer = null;
+        }
     }
 
     void Start()
@@ -66,15 +73,6 @@ public class VPL_Render : MonoBehaviour
 
         // 2. 生成 VPLs
         GenerateVPLs();
-
-        // ComputeBuffer 需要知道結構大小
-        // Vector3 (3*4 bytes) + Color (4*4 bytes) = 12 + 16 = 28 bytes
-        vplBuffer = new ComputeBuffer(numberOfVPLs, 28);
-        vplBuffer.SetData(vplList);
-
-        // 將 VPL 數據和數量設為 Shader 全域變數
-        Shader.SetGlobalBuffer("_VPLs", vplBuffer);
-        Shader.SetGlobalInt("_VPLCount", vplList.Count);
 
         // 3. 為所有 VPL 渲染陰影貼圖
         RenderAllShadowMaps();
@@ -132,11 +130,11 @@ public class VPL_Render : MonoBehaviour
                 ray.dir = randomDirection;
                 PbrtHitInfo hitInfo;
 
-                if (scene.intersect(ray, new Interval(0, float.PositiveInfinity), out hitInfo));
+                if (scene.intersect(ray, new Interval(0, float.PositiveInfinity), out hitInfo))
                 {
                     // 在碰撞點建立一個 VPL
                     VPL newVpl = new VPL();
-                    newVpl.position = hitInfo.position + hitInfo.normal * 0.05f; // 稍微偏移以避免 z-fighting
+                    newVpl.position = hitInfo.position + hitInfo.normal * 0.1f; // 稍微偏移以避免 z-fighting
 
                     // 顏色可以先用光源顏色，之後可以根據材質和衰減計算
                     newVpl.color = new Color(lightColors[j].x, lightColors[j].y, lightColors[j].z);
@@ -204,7 +202,9 @@ public class VPL_Render : MonoBehaviour
 
                 // 將渲染出的深度圖複製到紋理陣列的對應 slice
                 int sliceIndex = i * 6 + j;
-                Graphics.CopyTexture(rt, 0, 0, shadowmapArray, sliceIndex, 0);
+                Graphics.ConvertTexture(rt, 0, shadowmapArray, sliceIndex);
+                shadowCameraVP.Add(GL.GetGPUProjectionMatrix(shadowCamera.projectionMatrix, false) * shadowCamera.worldToCameraMatrix);
+                //Debug.Log(shadowCameraVP[^1] * new Vector4(0, 0, 0 ,1));
             }
         }
 
@@ -236,12 +236,14 @@ public class VPL_Render : MonoBehaviour
         // 建立並設定 ComputeBuffer
         vplBuffer = new ComputeBuffer(vplList.Count, sizeof(float) * 7); // Vector3 (3 floats) + Vector4 (4 floats)
         vplBuffer.SetData(vplData);
+        shadowCameraVPBuffer = new ComputeBuffer(shadowCameraVP.Count, sizeof(float) * 16);
+        shadowCameraVPBuffer.SetData(shadowCameraVP);
 
         // 將緩衝區、紋理陣列和計數器設為全域變數，供所有 Shader 使用
         Shader.SetGlobalBuffer("_VPLs", vplBuffer);
+        Shader.SetGlobalBuffer("_ShadowCamera_VP", shadowCameraVPBuffer);
         Shader.SetGlobalTexture("_ShadowMapArray", shadowmapArray);
         Shader.SetGlobalInt("_VPLCount", vplList.Count);
-        Shader.SetGlobalFloat("_ShadowFarPlane", shadowFarClip);
     }
 
     void LoatScene(string sceneFilePath)
@@ -374,6 +376,8 @@ public class VPL_Render : MonoBehaviour
         {
             SetVplVisualizeSphereActive(true);
         }
+
+        Camera.main.transform.position = vplList[onlyOneVplIndex].position;
     }
 
 
@@ -395,6 +399,8 @@ public class VPL_Render : MonoBehaviour
         {
             SetVplVisualizeSphereActive(true);
         }
+
+        Camera.main.transform.position = vplList[onlyOneVplIndex].position;
     }
 
     public int GetOnlyOneVplIndex()
