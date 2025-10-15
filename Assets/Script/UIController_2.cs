@@ -7,7 +7,13 @@ public class UIController_2 : MonoBehaviour
 {
     [SerializeField] private VPL_Render rayTracer = null;
     [SerializeField] private TextMeshProUGUI indexText = null;
-    
+    [SerializeField] private TextMeshProUGUI numText = null;
+
+    void Start()
+    {
+        numText.text = rayTracer.numberOfVPLs.ToString();
+    }
+
     public void ClickRenderButton()
     {
         //rayTracer.Render();
@@ -41,5 +47,17 @@ public class UIController_2 : MonoBehaviour
         {
             indexText.text = rayTracer.GetOnlyOneVplIndex().ToString();
         }
+    }
+
+    public void ClickIncreaseNumButton()
+    {
+        rayTracer.IncreaseVplNum();
+        numText.text = rayTracer.numberOfVPLs.ToString();
+    }
+
+    public void ClickDecreaseNumButton()
+    {
+        rayTracer.DecreaseVplNum();
+        numText.text = rayTracer.numberOfVPLs.ToString();
     }
 }

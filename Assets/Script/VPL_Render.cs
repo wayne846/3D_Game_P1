@@ -118,6 +118,7 @@ public class VPL_Render : MonoBehaviour
         }
 
         vplList.Clear();
+        ClearAllVplVisualizeSphere();
         for (int j = 0; j < lights.Count; j++)
         {
 
@@ -143,7 +144,7 @@ public class VPL_Render : MonoBehaviour
 
                     // 建立可視化VPL球體
                     GameObject sphere = CreateVplVisualizeSphere(newVpl.position, 0.05f, Color.yellow);
-                    sphere.SetActive(false);
+                    sphere.SetActive(isVisualizeVpl);
                     vplVisualizeSphere.Add(sphere);
                 }
             }
@@ -281,7 +282,7 @@ public class VPL_Render : MonoBehaviour
     /// <param name="radius">球體的半徑 (透過縮放來實現)</param>
     /// <param name="color">球體的顏色</param>
     /// <returns>建立的球體 GameObject</returns>
-    public GameObject CreateVplVisualizeSphere(Vector3 position, float radius, Color color)
+    GameObject CreateVplVisualizeSphere(Vector3 position, float radius, Color color)
     {
         // 1. 建立一個預設的 3D 球體基本體 (Primitive)
         // Unity 內建的球體半徑預設為 0.5 (直徑為 1 單位)
@@ -310,6 +311,8 @@ public class VPL_Render : MonoBehaviour
             // 將材質的顏色設定為指定顏色
             // 這是針對 Standard Shader 最常見的設定方式
             material.color = color;
+            material.EnableKeyword("_EMISSION");
+            material.SetColor("_EmissionColor", color);
 
             // 確保材質的渲染模式是支援透明度的 (如果顏色有透明度)
             // 如果只需要純色，可以忽略這一步
@@ -323,6 +326,15 @@ public class VPL_Render : MonoBehaviour
 
         // 5. 返回建立的球體物件
         return sphere;
+    }
+
+    public void ClearAllVplVisualizeSphere()
+    {
+        for(int i = 0; i < vplVisualizeSphere.Count; i++)
+        {
+            Destroy(vplVisualizeSphere[i]);
+        }
+        vplVisualizeSphere.Clear();
     }
 
     public void SetVplVisualizeSphereActive(bool isActive)
@@ -406,6 +418,28 @@ public class VPL_Render : MonoBehaviour
     public int GetOnlyOneVplIndex()
     {
         return onlyOneVplIndex;
+    }
+
+    public void IncreaseVplNum()
+    {
+        numberOfVPLs = numberOfVPLs * 2;
+        onlyOneVplIndex = Mathf.Clamp(onlyOneVplIndex, 0, numberOfVPLs - 1);
+        GenerateVPLs();
+        RenderAllShadowMaps();
+        SetupShaderGlobals();
+    }
+
+    public void DecreaseVplNum()
+    {
+        if(numberOfVPLs > 1)
+        {
+            numberOfVPLs = numberOfVPLs / 2;
+            onlyOneVplIndex = Mathf.Clamp(onlyOneVplIndex, 0, numberOfVPLs - 1);
+            GenerateVPLs();
+            RenderAllShadowMaps();
+            SetupShaderGlobals();
+        }
+        
     }
 
     #endregion
