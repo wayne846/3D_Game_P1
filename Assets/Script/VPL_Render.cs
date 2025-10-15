@@ -10,22 +10,22 @@ public class VPL_Render : MonoBehaviour
     [Header("Options")]
     public bool includeInactiveLights = true;
 
-    public int numberOfVPLs = 128; // ­n¥Í¦¨ªº VPL ¼Æ¶q
+    public int numberOfVPLs = 128; // è¦ç”Ÿæˆçš„ VPL æ•¸é‡
     public float rayMaxDistance = 100f;
 
     PbrtScene scene = null;
 
     [Header("Shadow Settings")]
-    public int shadowMapResolution = 256; // ³±¼v¶K¹Ïªº¸ÑªR«×
-    public LayerMask shadowCasterLayers; // «ü©w­ş¨Ç¹Ï¼hªºª«¥ó·|²£¥Í³±¼v
+    public int shadowMapResolution = 256; // é™°å½±è²¼åœ–çš„è§£æåº¦
+    public LayerMask shadowCasterLayers; // æŒ‡å®šå“ªäº›åœ–å±¤çš„ç‰©ä»¶æœƒç”¢ç”Ÿé™°å½±
     public float shadowNearClip = 0.01f;
     public float shadowFarClip = 100f;
 
     List<VPL> vplList = new List<VPL>();
     List<GameObject> vplVisualizeSphere = new List<GameObject>();
     ComputeBuffer vplBuffer;
-    Texture2DArray shadowmapArray; // Àx¦s©Ò¦³³±¼v¶K¹Ïªº¯¾²z°}¦C
-    List<Matrix4x4> shadowCameraVP = new List<Matrix4x4>(); // ´è¬V shadow map ®É¡Ashadow camera ªº Projection * View Matrix
+    Texture2DArray shadowmapArray; // å„²å­˜æ‰€æœ‰é™°å½±è²¼åœ–çš„ç´‹ç†é™£åˆ—
+    List<Matrix4x4> shadowCameraVP = new List<Matrix4x4>(); // æ¸²æŸ“ shadow map æ™‚ï¼Œshadow camera çš„ Projection * View Matrix
     ComputeBuffer shadowCameraVPBuffer;
     Camera shadowCamera;
 
@@ -39,7 +39,7 @@ public class VPL_Render : MonoBehaviour
         public Color color;
     }
 
-    // ³o­Óµ²ºc±N³Q¶Ç»¼µ¹ GPU
+    // é€™å€‹çµæ§‹å°‡è¢«å‚³éçµ¦ GPU
     private struct VPLDataForGPU
     {
         public Vector3 position;
@@ -48,7 +48,7 @@ public class VPL_Render : MonoBehaviour
 
     void OnDisable()
     {
-        // ÄÀ©ñ½w½Ä°Ï
+        // é‡‹æ”¾ç·©è¡å€
         if (vplBuffer != null)
         {
             vplBuffer.Release();
@@ -63,30 +63,30 @@ public class VPL_Render : MonoBehaviour
 
     void Start()
     {
-        // PBRT ÀÉ®×¸ô®|¡A¬Û¹ï©ó±M®×®Ú¥Ø¿ı
+        // PBRT æª”æ¡ˆè·¯å¾‘ï¼Œç›¸å°æ–¼å°ˆæ¡ˆæ ¹ç›®éŒ„
         string sceneFileName = "sibenik-whitted.pbrt";
         string sceneFilePath = System.IO.Path.Combine(Application.streamingAssetsPath, sceneFileName);
         LoatScene(sceneFilePath);
 
-        // 1. «Ø¥ß¤@­Ó¥Î©ó´è¬V³±¼vªºÁôÂÃ¬Û¾÷
+        // 1. å»ºç«‹ä¸€å€‹ç”¨æ–¼æ¸²æŸ“é™°å½±çš„éš±è—ç›¸æ©Ÿ
         CreateShadowCamera();
 
-        // 2. ¥Í¦¨ VPLs
+        // 2. ç”Ÿæˆ VPLs
         GenerateVPLs();
 
-        // 3. ¬°©Ò¦³ VPL ´è¬V³±¼v¶K¹Ï
+        // 3. ç‚ºæ‰€æœ‰ VPL æ¸²æŸ“é™°å½±è²¼åœ–
         RenderAllShadowMaps();
 
-        // 4. ±N VPL ¼Æ¾Ú©M³±¼v¶K¹Ï¶Ç»¼µ¹©Ò¦³ Shader
+        // 4. å°‡ VPL æ•¸æ“šå’Œé™°å½±è²¼åœ–å‚³éçµ¦æ‰€æœ‰ Shader
         SetupShaderGlobals();
     }
 
     void CreateShadowCamera()
     {
         GameObject camGO = new GameObject("ShadowCamera");
-        //camGO.hideFlags = HideFlags.HideAndDontSave; // Á×§K¦b³õ´º¤¤¬İ¨ì©ÎÀx¦s¥¦
+        //camGO.hideFlags = HideFlags.HideAndDontSave; // é¿å…åœ¨å ´æ™¯ä¸­çœ‹åˆ°æˆ–å„²å­˜å®ƒ
         shadowCamera = camGO.AddComponent<Camera>();
-        shadowCamera.enabled = false; // §Ú­Ì¥u¤â°Ê©I¥s¥¦ªº Render()
+        shadowCamera.enabled = false; // æˆ‘å€‘åªæ‰‹å‹•å‘¼å«å®ƒçš„ Render()
         shadowCamera.cullingMask = shadowCasterLayers;
         shadowCamera.nearClipPlane = shadowNearClip;
         shadowCamera.farClipPlane = shadowFarClip;
@@ -123,7 +123,7 @@ public class VPL_Render : MonoBehaviour
 
             for (int i = 0; i < numberOfVPLs; i++)
             {
-                // ±q¥ú·½¦ì¸mµo®gÀH¾÷¤è¦Vªº¥ú½u
+                // å¾å…‰æºä½ç½®ç™¼å°„éš¨æ©Ÿæ–¹å‘çš„å…‰ç·š
                 Vector3 randomDirection = Random.onUnitSphere;
                 PbrtRay ray;
                 ray.origin = new Vector3(lights[j].x, lights[j].y, lights[j].z);
@@ -132,16 +132,16 @@ public class VPL_Render : MonoBehaviour
 
                 if (scene.intersect(ray, new Interval(0, float.PositiveInfinity), out hitInfo))
                 {
-                    // ¦b¸I¼²ÂI«Ø¥ß¤@­Ó VPL
+                    // åœ¨ç¢°æ’é»å»ºç«‹ä¸€å€‹ VPL
                     VPL newVpl = new VPL();
-                    newVpl.position = hitInfo.position + hitInfo.normal * 0.1f; // µy·L°¾²¾¥HÁ×§K z-fighting
+                    newVpl.position = hitInfo.position + hitInfo.normal * 0.1f; // ç¨å¾®åç§»ä»¥é¿å… z-fighting
 
-                    // ÃC¦â¥i¥H¥ı¥Î¥ú·½ÃC¦â¡A¤§«á¥i¥H®Ú¾Ú§÷½è©M°I´î­pºâ
+                    // é¡è‰²å¯ä»¥å…ˆç”¨å…‰æºé¡è‰²ï¼Œä¹‹å¾Œå¯ä»¥æ ¹æ“šæè³ªå’Œè¡°æ¸›è¨ˆç®—
                     newVpl.color = new Color(lightColors[j].x, lightColors[j].y, lightColors[j].z);
 
                     vplList.Add(newVpl);
 
-                    // «Ø¥ß¥iµø¤ÆVPL²yÅé
+                    // å»ºç«‹å¯è¦–åŒ–VPLçƒé«”
                     GameObject sphere = CreateVplVisualizeSphere(newVpl.position, 0.05f, Color.yellow);
                     sphere.SetActive(false);
                     vplVisualizeSphere.Add(sphere);
@@ -155,7 +155,7 @@ public class VPL_Render : MonoBehaviour
     {
         if (vplList.Count == 0)
         {
-            // ÃB¥~³B²z¡G¦pªG¨S¦³ VPL¡A¤]À³¸Ó½T«OÂÂªº Texture2DArray ³Q²M²z
+            // é¡å¤–è™•ç†ï¼šå¦‚æœæ²’æœ‰ VPLï¼Œä¹Ÿæ‡‰è©²ç¢ºä¿èˆŠçš„ Texture2DArray è¢«æ¸…ç†
             if (shadowmapArray != null)
             {
                 UnityEngine.Object.Destroy(shadowmapArray);
@@ -164,15 +164,15 @@ public class VPL_Render : MonoBehaviour
             return;
         }
 
-        // *** ÃöÁä­×´_ÂI¡G¦b³Ğ«Ø·sªº Texture2DArray ¤§«e¡A¾P·´ÂÂªº ***
+        // *** é—œéµä¿®å¾©é»ï¼šåœ¨å‰µå»ºæ–°çš„ Texture2DArray ä¹‹å‰ï¼ŒéŠ·æ¯€èˆŠçš„ ***
         if (shadowmapArray != null)
         {
-            // ¨Ï¥Î UnityEngine.Object.Destroy ¾P·´ Unity ­ì¥Í¸ê·½
+            // ä½¿ç”¨ UnityEngine.Object.Destroy éŠ·æ¯€ Unity åŸç”Ÿè³‡æº
             UnityEngine.Object.Destroy(shadowmapArray);
         }
 
-        // «Ø¥ß Texture2DArray ¨ÓÀx¦s©Ò¦³ Cubemap ªº6­Ó­±
-        // ¨C­Ó VPL »İ­n6­Ó slice (¤@­Ó Cubemap ªº6­Ó­±)
+        // å»ºç«‹ Texture2DArray ä¾†å„²å­˜æ‰€æœ‰ Cubemap çš„6å€‹é¢
+        // æ¯å€‹ VPL éœ€è¦6å€‹ slice (ä¸€å€‹ Cubemap çš„6å€‹é¢)
         shadowmapArray = new Texture2DArray(
             shadowMapResolution, shadowMapResolution,
             vplList.Count * 6, TextureFormat.RFloat, false);
@@ -184,7 +184,7 @@ public class VPL_Render : MonoBehaviour
         rt.Create();
         shadowCamera.targetTexture = rt;
 
-        // Cubemap 6­Ó­±ªº´è¬V¤è¦V
+        // Cubemap 6å€‹é¢çš„æ¸²æŸ“æ–¹å‘
         Vector3[] directions = { Vector3.right, Vector3.left, Vector3.up, Vector3.down, Vector3.forward, Vector3.back };
         Quaternion[] rotations = {
             Quaternion.LookRotation(Vector3.right), Quaternion.LookRotation(Vector3.left),
@@ -200,7 +200,7 @@ public class VPL_Render : MonoBehaviour
                 shadowCamera.transform.rotation = rotations[j];
                 shadowCamera.Render();
 
-                // ±N´è¬V¥Xªº²`«×¹Ï½Æ»s¨ì¯¾²z°}¦Cªº¹ïÀ³ slice
+                // å°‡æ¸²æŸ“å‡ºçš„æ·±åº¦åœ–è¤‡è£½åˆ°ç´‹ç†é™£åˆ—çš„å°æ‡‰ slice
                 int sliceIndex = i * 6 + j;
                 Graphics.ConvertTexture(rt, 0, shadowmapArray, sliceIndex);
                 shadowCameraVP.Add(GL.GetGPUProjectionMatrix(shadowCamera.projectionMatrix, false) * shadowCamera.worldToCameraMatrix);
@@ -208,20 +208,20 @@ public class VPL_Render : MonoBehaviour
             }
         }
 
-        rt.Release(); // ÄÀ©ñÁ{®Éªº Render Texture
+        rt.Release(); // é‡‹æ”¾è‡¨æ™‚çš„ Render Texture
     }
 
     void SetupShaderGlobals()
     {
         if (vplList.Count == 0) return;
 
-        // ·Ç³Æ­n¶Çµ¹ GPU ªº¼Æ¾Ú
+        // æº–å‚™è¦å‚³çµ¦ GPU çš„æ•¸æ“š
         VPLDataForGPU[] vplData = new VPLDataForGPU[vplList.Count];
         for (int i = 0; i < vplList.Count; i++)
         {
             if (isOnlyOneVpl)
             {
-                // ¥u¦³¯S©wªºvpl¤~·|¶Ç
+                // åªæœ‰ç‰¹å®šçš„vplæ‰æœƒå‚³
                 if(i == onlyOneVplIndex)
                 {
                     vplData[i] = new VPLDataForGPU { position = vplList[i].position, color = vplList[i].color };
@@ -233,13 +233,13 @@ public class VPL_Render : MonoBehaviour
             }
         }
 
-        // «Ø¥ß¨Ã³]©w ComputeBuffer
+        // å»ºç«‹ä¸¦è¨­å®š ComputeBuffer
         vplBuffer = new ComputeBuffer(vplList.Count, sizeof(float) * 7); // Vector3 (3 floats) + Vector4 (4 floats)
         vplBuffer.SetData(vplData);
         shadowCameraVPBuffer = new ComputeBuffer(shadowCameraVP.Count, sizeof(float) * 16);
         shadowCameraVPBuffer.SetData(shadowCameraVP);
 
-        // ±N½w½Ä°Ï¡B¯¾²z°}¦C©M­p¼Æ¾¹³]¬°¥ş°ìÅÜ¼Æ¡A¨Ñ©Ò¦³ Shader ¨Ï¥Î
+        // å°‡ç·©è¡å€ã€ç´‹ç†é™£åˆ—å’Œè¨ˆæ•¸å™¨è¨­ç‚ºå…¨åŸŸè®Šæ•¸ï¼Œä¾›æ‰€æœ‰ Shader ä½¿ç”¨
         Shader.SetGlobalBuffer("_VPLs", vplBuffer);
         Shader.SetGlobalBuffer("_ShadowCamera_VP", shadowCameraVPBuffer);
         Shader.SetGlobalTexture("_ShadowMapArray", shadowmapArray);
@@ -256,7 +256,7 @@ public class VPL_Render : MonoBehaviour
         }
         else
         {
-            UnityEngine.Debug.LogError($"PBRT ³õ´ºÀÉ®×¥¼§ä¨ì: {sceneFilePath}");
+            UnityEngine.Debug.LogError($"PBRT å ´æ™¯æª”æ¡ˆæœªæ‰¾åˆ°: {sceneFilePath}");
         }
     }
 
@@ -269,50 +269,50 @@ public class VPL_Render : MonoBehaviour
             foreach (var vpl in vplList)
             {
                 Gizmos.color = vpl.color;
-                Gizmos.DrawSphere(vpl.position, 0.05f); // Ã¸»s¤@­Ó¤p²yÅé¥Nªí VPL
+                Gizmos.DrawSphere(vpl.position, 0.05f); // ç¹ªè£½ä¸€å€‹å°çƒé«”ä»£è¡¨ VPL
             }
         }
     }
 
     /// <summary>
-    /// °ÊºA«Ø¥ß¤@­Ó²yÅé GameObject
+    /// å‹•æ…‹å»ºç«‹ä¸€å€‹çƒé«” GameObject
     /// </summary>
-    /// <param name="position">²yÅé¦b¥@¬ÉªÅ¶¡¤¤ªº¦ì¸m</param>
-    /// <param name="radius">²yÅéªº¥b®| (³z¹LÁY©ñ¨Ó¹ê²{)</param>
-    /// <param name="color">²yÅéªºÃC¦â</param>
-    /// <returns>«Ø¥ßªº²yÅé GameObject</returns>
+    /// <param name="position">çƒé«”åœ¨ä¸–ç•Œç©ºé–“ä¸­çš„ä½ç½®</param>
+    /// <param name="radius">çƒé«”çš„åŠå¾‘ (é€éç¸®æ”¾ä¾†å¯¦ç¾)</param>
+    /// <param name="color">çƒé«”çš„é¡è‰²</param>
+    /// <returns>å»ºç«‹çš„çƒé«” GameObject</returns>
     public GameObject CreateVplVisualizeSphere(Vector3 position, float radius, Color color)
     {
-        // 1. «Ø¥ß¤@­Ó¹w³]ªº 3D ²yÅé°ò¥»Åé (Primitive)
-        // Unity ¤º«Øªº²yÅé¥b®|¹w³]¬° 0.5 (ª½®|¬° 1 ³æ¦ì)
+        // 1. å»ºç«‹ä¸€å€‹é è¨­çš„ 3D çƒé«”åŸºæœ¬é«” (Primitive)
+        // Unity å…§å»ºçš„çƒé«”åŠå¾‘é è¨­ç‚º 0.5 (ç›´å¾‘ç‚º 1 å–®ä½)
         GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
 
-        // 2. «ü©w¦ì¸m
+        // 2. æŒ‡å®šä½ç½®
         sphere.transform.position = position;
 
-        // 3. «ü©w¥b®| (³z¹LÁY©ñ Sacle ¨Ó¹ê²{)
-        // ¥Ñ©ó¹w³]²yÅéªºª½®|¬° 1¡A­n¹F¨ì«ü©wªº¥b®| R¡A
-        // «hª½®|¬° 2R¡A¦]¦¹ÁY©ñ¦]¤l¬° (2 * radius)
+        // 3. æŒ‡å®šåŠå¾‘ (é€éç¸®æ”¾ Sacle ä¾†å¯¦ç¾)
+        // ç”±æ–¼é è¨­çƒé«”çš„ç›´å¾‘ç‚º 1ï¼Œè¦é”åˆ°æŒ‡å®šçš„åŠå¾‘ Rï¼Œ
+        // å‰‡ç›´å¾‘ç‚º 2Rï¼Œå› æ­¤ç¸®æ”¾å› å­ç‚º (2 * radius)
         float scaleFactor = radius * 2f;
         sphere.transform.localScale = new Vector3(scaleFactor, scaleFactor, scaleFactor);
 
-        // 4. «ü©wÃC¦â (³]©w§÷½è)
+        // 4. æŒ‡å®šé¡è‰² (è¨­å®šæè³ª)
 
-        // ¨ú±o²yÅé¤Wªº MeshRenderer ¤¸¥ó
+        // å–å¾—çƒé«”ä¸Šçš„ MeshRenderer å…ƒä»¶
         MeshRenderer renderer = sphere.GetComponent<MeshRenderer>();
 
         if (renderer != null)
         {
-            // ¬°¤F¤£¼vÅT¨ä¥L¨Ï¥Î¬Û¦P§÷½èªºª«¥ó¡A«ØÄ³¨Ï¥Î .material ¦Ó«D .sharedMaterial
-            // µù: ¨C¦¸¨Ï¥Î .material ·|«Ø¥ß¤@­Ó·sªº§÷½è¹ê¨Ò
+            // ç‚ºäº†ä¸å½±éŸ¿å…¶ä»–ä½¿ç”¨ç›¸åŒæè³ªçš„ç‰©ä»¶ï¼Œå»ºè­°ä½¿ç”¨ .material è€Œé .sharedMaterial
+            // è¨»: æ¯æ¬¡ä½¿ç”¨ .material æœƒå»ºç«‹ä¸€å€‹æ–°çš„æè³ªå¯¦ä¾‹
             Material material = renderer.material;
 
-            // ±N§÷½èªºÃC¦â³]©w¬°«ü©wÃC¦â
-            // ³o¬O°w¹ï Standard Shader ³Ì±`¨£ªº³]©w¤è¦¡
+            // å°‡æè³ªçš„é¡è‰²è¨­å®šç‚ºæŒ‡å®šé¡è‰²
+            // é€™æ˜¯é‡å° Standard Shader æœ€å¸¸è¦‹çš„è¨­å®šæ–¹å¼
             material.color = color;
 
-            // ½T«O§÷½èªº´è¬V¼Ò¦¡¬O¤ä´©³z©ú«×ªº (¦pªGÃC¦â¦³³z©ú«×)
-            // ¦pªG¥u»İ­n¯Â¦â¡A¥i¥H©¿²¤³o¤@¨B
+            // ç¢ºä¿æè³ªçš„æ¸²æŸ“æ¨¡å¼æ˜¯æ”¯æ´é€æ˜åº¦çš„ (å¦‚æœé¡è‰²æœ‰é€æ˜åº¦)
+            // å¦‚æœåªéœ€è¦ç´”è‰²ï¼Œå¯ä»¥å¿½ç•¥é€™ä¸€æ­¥
             // material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
             // material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
             // material.SetInt("_ZWrite", 1);
@@ -321,7 +321,7 @@ public class VPL_Render : MonoBehaviour
             // material.SetInt("_Mode", (int)UnityEngine.Rendering.SurfaceType.Opaque); 
         }
 
-        // 5. ªğ¦^«Ø¥ßªº²yÅéª«¥ó
+        // 5. è¿”å›å»ºç«‹çš„çƒé«”ç‰©ä»¶
         return sphere;
     }
 
