@@ -145,6 +145,10 @@ Material:
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
+    - _BumpMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -152,6 +156,7 @@ Material:
     m_Ints: []
     m_Floats:
     - _Shininess: 32
+    - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0.6, g: 0.95, b: 0.95, a: 1}
@@ -535,6 +540,10 @@ Material:
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
+    - _BumpMap:
+        m_Texture: {fileID: 2800000, guid: f2bd5c8af617bbb4892aa4371f1e0b1d, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 86526018}
         m_Scale: {x: 1, y: 1}
@@ -542,6 +551,7 @@ Material:
     m_Ints: []
     m_Floats:
     - _Shininess: 32
+    - _UseBumpMap: 1
     - _UseTexture: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
@@ -1294,6 +1304,12 @@ MonoBehaviour:
   RayTracingShader: {fileID: 7200000, guid: c6dcb9863d084ef46aa33e18781e26bb, type: 3}
   OnlyRenderOneTime: 0
   DoSSAO: 0
+  AoParameters:
+    _AOUse: 0
+    _AOSamples: 4
+    _AORadius: 0.06
+    _AOBias: 0.006
+    _AOIntensity: 1
 --- !u!114 &2079396273
 MonoBehaviour:
   m_ObjectHideFlags: 0

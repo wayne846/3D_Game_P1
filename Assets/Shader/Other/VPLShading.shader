@@ -7,6 +7,9 @@ Shader "Custom/VPLShading"
         _UseTexture("Whether to use texture", Range(0, 1)) = 0
         _SpecColor("Specular Color", Color) = (1,1,1,1)
         _Shininess("Shininess", Range(1,256)) = 32
+
+        _BumpMap("Bump Map", 2D) = "black" {}
+        _UseBumpMap("Whether to use bump map", Range(0, 1)) = 0
     }
     SubShader
     {
@@ -21,6 +24,7 @@ Shader "Custom/VPLShading"
 
             #include "UnityCG.cginc"
             #include "HLSLSupport.cginc"
+            #include "BumpMap.hlsl"
 
             struct VPLDataForGPU
             {
@@ -147,7 +151,7 @@ Shader "Custom/VPLShading"
                 float4 baseColor = tex2D(_MainTex, i.uv);
                 if (_UseTexture == 0) baseColor = _Color;
 
-                float3 N = normalize(i.worldNormal);
+                float3 N = GetBumpMapNormal(i.uv, i.worldNormal);
                 float3 V = normalize(_WorldSpaceCameraPos - i.worldPos);
 
                 float3 finalDiffuse = float3(0,0,0);

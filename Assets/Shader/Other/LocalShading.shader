@@ -7,6 +7,9 @@ Shader "Custom/LocalShading"
         _UseTexture("Whether to use texture", Range(0, 1)) = 0
         _SpecColor("Specular Color", Color) = (1,1,1,1)
         _Shininess("Shininess", Range(1,256)) = 32
+
+        _BumpMap("Bump Map", 2D) = "black" {}
+        _UseBumpMap("Whether to use bump map", Range(0, 1)) = 0
     }
     SubShader
     {
@@ -20,6 +23,7 @@ Shader "Custom/LocalShading"
             #pragma fragment frag
             #include "UnityCG.cginc"
             #include "UnityLightingCommon.cginc"
+            #include "BumpMap.hlsl"
 
             float4 _Color;
             //float4 _SpecColor;
@@ -63,7 +67,7 @@ Shader "Custom/LocalShading"
                 if (_UseTexture == 0)
                     baseColor = _Color;
 
-                float3 N = normalize(i.worldNormal);
+                float3 N = GetBumpMapNormal(i.uv, i.worldNormal);
                 float3 L = normalize(_WorldSpaceLightPos0.xyz);
                 float3 V = normalize(_WorldSpaceCameraPos - i.worldPos);
 
