@@ -3,6 +3,7 @@
 #include "BasicRay.hlsl"
 #include "SceneData.hlsl"
 #include "SceneTrace.hlsl"
+#include "AmbientOcclusion.hlsl"
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
@@ -48,7 +49,7 @@ float3 Shade(Ray currentRay, ExtraHitInfo extraHitInfo)
             ExtraHitInfo shadowHit = Trace(shadowRay, shadowRayDistance);
         
             // 被遮住（有打到東西）
-            if (any(shadowHit.hitUV != float2(-1, -1)))
+            if (HasHit(shadowHit))
                 continue;
         
             // 計算 Phong Shading
@@ -94,7 +95,9 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 {
     Ray cameraRay = CreateCameraRay(id.x, id.y);
     ExtraHitInfo extraHitInfo = Trace(cameraRay, 1.#INF);
-    Result[id.xy] = float4(Shade(cameraRay, extraHitInfo), 1.0);
+    float AO = ComputeAmbientOcclusion(extraHitInfo);
+    
+    Result[id.xy] = float4(Shade(cameraRay, extraHitInfo) * AO, 1.0);
     WorldPosTexture[id.xy] = float4(extraHitInfo.hitInfo.position, 1);
     NormalTexture[id.xy] = float4(extraHitInfo.hitInfo.normal, 0);
 }

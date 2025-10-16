@@ -54,6 +54,11 @@ ExtraHitInfo Trace(Ray ray, float rayDistance)
     return result;
 }
 
+bool HasHit(ExtraHitInfo h)
+{
+    return all(isfinite(h.hitInfo.position));
+}
+
 float3 GetKd(ExtraHitInfo extraHitInfo)
 {
     float4 Kd = _MeshObjects[extraHitInfo.hitMesh].Kd;

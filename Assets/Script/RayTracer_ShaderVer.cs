@@ -2,19 +2,33 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
+using Unity.VisualScripting.Dependencies.Sqlite;
 using UnityEngine;
 
 [RequireComponent(typeof(Camera))]
 public class RayTracer_ShaderVer : MonoBehaviour
 {
+    [Serializable, StructLayout(LayoutKind.Sequential)]
+    public struct AOParams
+    {
+        [Range(0, 1)]
+        public int _AOUse;
+        public int _AOSamples;
+        public float _AORadius;
+        public float _AOBias;
+        public float _AOIntensity;
+    };
+
     RenderTexture _target;   ///< Compute Shader 渲染在這個 texture，然後再顯示在 _displayQuad
     RenderTexture _target2;
     RenderTexture WorldPosTexture;
     RenderTexture NormalTexture;
+    ComputeBuffer _aoBffer;
     Material _SSAOMat;
     GameObject _displayQuad; ///< 放在 Near Clip Plane 上，負責顯示渲染結果
     Camera _camera;          ///< 記錄相機 Component
-    int _renderTime = 0;
+    bool _firstRender;
 
     [Tooltip("使用第 0 個 kernel 進行渲染，RenderTexture 會綁定在 Result 變數")]
     public ComputeShader RayTracingShader;
@@ -25,11 +39,19 @@ public class RayTracer_ShaderVer : MonoBehaviour
     [Tooltip("")]
     public bool DoSSAO = false;
 
+    [Tooltip("AO 的設定")]
+    public AOParams AoParameters = new AOParams { _AOUse = 0, _AOSamples = 4, _AORadius = 0.06f, _AOBias = 0.006f, _AOIntensity = 1f };
+
     private void OnEnable()
     {
         _camera = GetComponent<Camera>();
-        _renderTime = 0;
+        _firstRender = true;
         _SSAOMat = new Material(Shader.Find("Hidden/SSAO"));
+
+        if (_aoBffer == null)
+        {
+            _aoBffer = new ComputeBuffer(1, 5 * sizeof(float));
+        }
     }
 
     private void OnDisable()
@@ -39,9 +61,9 @@ public class RayTracer_ShaderVer : MonoBehaviour
 
     private void Update()
     {
-        if (OnlyRenderOneTime && _renderTime > 0)
+        if (OnlyRenderOneTime && !_firstRender)
             return;
-        ++_renderTime;
+        _firstRender = false;
 
         Render();
     }
@@ -184,6 +206,9 @@ public class RayTracer_ShaderVer : MonoBehaviour
     /// </summary>
     private void SetupBasicParameters()
     {
+        _aoBffer.SetData(new AOParams[] {AoParameters});
+        RayTracingShader.SetConstantBuffer("AOParams", _aoBffer, 0, 5 * sizeof(float));
+
         RayTracingShader.SetTexture(0, "Result", _target2);
         RayTracingShader.SetTexture(0, "WorldPosTexture", WorldPosTexture);
         RayTracingShader.SetTexture(0, "NormalTexture", NormalTexture);
