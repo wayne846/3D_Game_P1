@@ -26,8 +26,9 @@ public class SceneBVH
     public struct BVHNode
     {
         public Vector4 minAABB, maxAABB; // AABB 中 xyz 最小和最大
-        public int leftNode, rightNode; // 子節點的 index，-1 代表不能再往下
-        public int indices_offset, indices_count; // 這個節點包含哪些 Triangle，包含 _Indices 中的 [indices_offset, indices_offset + indices_count)
+        // 1. 當 indices_count > 0  -> _Indices [indices_offset, indices_offset + indices_count) 為這個節點包含的所有三角形
+        // 2. 當 indices_count <= 0 -> _BVHs[indices_offset] 是左子樹，_BVHs[indices_offset + 1] 是右子樹
+        public int indices_offset, indices_count;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -170,8 +171,6 @@ public class SceneBVH
     void InitAABB_SubdivideBVH(int i)
     {
         BVHNode root = _BVHs[i];
-        root.leftNode = -1;
-        root.rightNode = -1;
 
         // AABB
         FindAABB(root.indices_offset, root.indices_count, Matrix4x4.identity,
@@ -227,7 +226,7 @@ public class SceneBVH
             if (right_indices_offset != root.indices_offset && right_indices_offset != root.indices_offset + root.indices_count)
             {
                 // 5. 建立左子樹
-                root.leftNode = _BVHs.Count;
+                int leftNodeIdx = _BVHs.Count;
                 _BVHs.Add(new BVHNode
                 {
                     indices_offset = root.indices_offset,
@@ -235,15 +234,17 @@ public class SceneBVH
                 });
 
                 // 6. 建立右子樹
-                root.rightNode = _BVHs.Count;
                 _BVHs.Add(new BVHNode
                 {
                     indices_offset = right_indices_offset,
                     indices_count = root.indices_offset + root.indices_count - right_indices_offset
                 });
 
-                InitAABB_SubdivideBVH(root.leftNode);
-                InitAABB_SubdivideBVH(root.rightNode);
+                InitAABB_SubdivideBVH(leftNodeIdx);
+                InitAABB_SubdivideBVH(leftNodeIdx + 1);
+
+                root.indices_offset = leftNodeIdx;
+                root.indices_count = 0;
             }
         }
 
@@ -306,6 +307,8 @@ public class SceneBVH
         {
             hitInfo = new PbrtHitInfo { distance = rayDistance, normal = Vector3.zero, position = new Vector3(Mathf.Infinity, Mathf.Infinity, Mathf.Infinity) },
             hitIndexOffset = -1,
+            hitMesh = -1,
+            hitUV = new Vector2(-1, -1)
         };
         if (BVHroot == -1)
             return bestHit;
@@ -316,7 +319,7 @@ public class SceneBVH
         if (IntersectAABB(ray, rayDistance, root.minAABB, root.maxAABB))
         {
             // 是葉子
-            if (root.leftNode == -1 && root.rightNode == -1)
+            if (root.indices_count > 0)
             {
                 // 對於包含的每一個三角形
                 for (int i = root.indices_offset; i < root.indices_offset + root.indices_count; i += 3)
@@ -336,8 +339,8 @@ public class SceneBVH
             else
             {
                 // 拜訪左右子樹，看哪一個子樹的 distance 最小
-                bestHit = TraceBVH(root.leftNode, ray, bestHit.hitInfo.distance); 
-                ExtraHitInfo rightHit = TraceBVH(root.rightNode, ray, bestHit.hitInfo.distance);
+                bestHit = TraceBVH(root.indices_offset, ray, bestHit.hitInfo.distance); 
+                ExtraHitInfo rightHit = TraceBVH(root.indices_offset + 1, ray, bestHit.hitInfo.distance);
 
                 if (rightHit.hitInfo.distance < bestHit.hitInfo.distance)
                     return rightHit;
@@ -485,7 +488,7 @@ public class SceneBVH
         BVHNode node = _BVHs[root];
 
         // leaf
-        if (node.leftNode == -1 && node.rightNode == -1)
+        if (node.indices_count > 0)
         {
             Gizmos.color = Color.gray;
             Mesh m = CreateRotatedBox(node.minAABB, node.maxAABB, localToWorld);
@@ -494,8 +497,8 @@ public class SceneBVH
         }
         else
         {
-            DrawBVHNode(node.leftNode, localToWorld);
-            DrawBVHNode(node.rightNode, localToWorld);
+            DrawBVHNode(node.indices_offset, localToWorld);
+            DrawBVHNode(node.indices_offset + 1, localToWorld);
 
         }
     }
