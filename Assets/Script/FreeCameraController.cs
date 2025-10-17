@@ -43,7 +43,7 @@ public class FreeCameraController : MonoBehaviour
             var tracer = GetComponent<RayTracer_ShaderVer>();
             if (tracer != null && tracer.OnlyRenderOneTime)
             {
-                tracer.DestroyQuad();
+                tracer.enabled = false;
             }
         }
     }

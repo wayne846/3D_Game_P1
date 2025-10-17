@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 [RequireComponent(typeof(Camera))]
 public class RayTracer_ShaderVer : MonoBehaviour
@@ -19,13 +21,12 @@ public class RayTracer_ShaderVer : MonoBehaviour
         public float _AOIntensity;
     };
 
-    RenderTexture _target;   ///< Compute Shader 渲染在這個 texture，然後再顯示在 _displayQuad
+    RenderTexture _target;   ///< 一般：直接渲染在 _target, SSAO: 先渲染在 _target2 再渲染到 _target
     RenderTexture _target2;
     RenderTexture WorldPosTexture;
     RenderTexture NormalTexture;
     ComputeBuffer _aoBffer;
     Material _SSAOMat;
-    GameObject _displayQuad; ///< 放在 Near Clip Plane 上，負責顯示渲染結果
     Camera _camera;          ///< 記錄相機 Component
     bool _firstRender;
     int _kernel;
@@ -47,29 +48,17 @@ public class RayTracer_ShaderVer : MonoBehaviour
         _camera = GetComponent<Camera>();
         _firstRender = true;
         _SSAOMat = new Material(Shader.Find("Custom/SSAO"));
-
-        if (_aoBffer == null)
-        {
-            _aoBffer = new ComputeBuffer(1, 5 * sizeof(float));
-        }
-
-        if (RayTracingShader != null)
-            _kernel = RayTracingShader.FindKernel("CSMain");
-
+        _aoBffer = new ComputeBuffer(1, 5 * sizeof(float));
+        _kernel = RayTracingShader.FindKernel("CSMain");
     }
 
     private void OnDisable()
     {
-        Destroy(_displayQuad);
-    }
-
-    private void Update()
-    {
-        if (OnlyRenderOneTime && !_firstRender)
-            return;
-        _firstRender = false;
-
-        Render();
+        _target.Release(); _target = null;
+        WorldPosTexture.Release(); WorldPosTexture = null;
+        NormalTexture.Release(); NormalTexture = null;
+        GameObject.Destroy(_SSAOMat); _SSAOMat = null;
+        _aoBffer.Release(); _aoBffer = null;
     }
 
     [ContextMenu("Export Ray Tracing Result")]
@@ -102,14 +91,22 @@ public class RayTracer_ShaderVer : MonoBehaviour
         }
     }
 
-    public void Render()
+    public void Render(ref CommandBuffer cmd)
     {
+        if (!Application.isPlaying)
+            return;
+        if (OnlyRenderOneTime && !_firstRender)
+        {
+            cmd.Blit(_target, BuiltinRenderTextureType.CameraTarget);
+            return;
+        }
+        _firstRender = false;
+
         InitRenderTexture();
-        InitDisplayQuad();
-        SetupBasicParameters(); // NOTE: RayTracingShader 會渲染到 _target2
+        SetupBasicParameters(); // NOTE: RayTracingShader 一般：直接渲染在 _target, SSAO: 先渲染在 _target2 再渲染到 _target
 
         // Rendering
-        RayTracingShader.Dispatch(_kernel, Mathf.CeilToInt(Screen.width / 8.0f), Mathf.CeilToInt(Screen.height / 8.0f), 1);
+        cmd.DispatchCompute(RayTracingShader, _kernel, Mathf.CeilToInt(Screen.width / 8.0f), Mathf.CeilToInt(Screen.height / 8.0f), 1);
 
         if (DoSSAO)
         {
@@ -119,28 +116,27 @@ public class RayTracer_ShaderVer : MonoBehaviour
             _SSAOMat.SetVector("_CameraPos", _camera.transform.position);
             _SSAOMat.SetMatrix("_Camera_VP", GL.GetGPUProjectionMatrix(_camera.projectionMatrix, false) * _camera.worldToCameraMatrix);
 
-            Graphics.Blit(_target2, _target, _SSAOMat);
+            cmd.Blit(_target2, _target, _SSAOMat);
         }
-        else
-            Graphics.Blit(_target2, _target);
+        
+        cmd.Blit(_target, BuiltinRenderTextureType.CameraTarget);
     }
 
     private void InitRenderTexture()
     {
-        if (_target == null || _target.width != Screen.width || _target.height != Screen.height)
+        RenderTextureDescriptor desc = new(Screen.width, Screen.height, RenderTextureFormat.ARGBFloat
+                                            , /* depth */ 0, /* mipmap */ 0, RenderTextureReadWrite.Linear);
+        desc.enableRandomWrite = true;
+
+        if (_target == null || _target.width != desc.width || _target.height != desc.height)
         {
             // Release render texture if we already have one
             if (_target != null)
                 _target.Release();
 
             // Get a render target for Ray Tracing
-            _target = new RenderTexture(Screen.width, Screen.height, 0,
-                RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
-            _target.enableRandomWrite = true;
+            _target = new RenderTexture(desc);
             _target.Create();
-
-            if (_displayQuad != null)
-                _displayQuad.GetComponent<MeshRenderer>().material.mainTexture = _target;
         }
 
         if (_target2 == null || _target2.width != _target.width || _target2.height != _target.height)
@@ -148,8 +144,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
             if (_target2 != null)
                 _target2.Release();
 
-            _target2 = new RenderTexture(_target.width, _target.height, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
-            _target2.enableRandomWrite = true;
+            _target2 = new RenderTexture(desc);
             _target2.Create();
         }
 
@@ -158,8 +153,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
             if (WorldPosTexture != null)
                 WorldPosTexture.Release();
 
-            WorldPosTexture = new RenderTexture(_target.width, _target.height, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
-            WorldPosTexture.enableRandomWrite = true;
+            WorldPosTexture = new RenderTexture(desc);
             WorldPosTexture.Create();
         }
 
@@ -168,41 +162,9 @@ public class RayTracer_ShaderVer : MonoBehaviour
             if (NormalTexture != null)
                 NormalTexture.Release();
 
-            NormalTexture = new RenderTexture(_target.width, _target.height, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
-            NormalTexture.enableRandomWrite = true;
+            NormalTexture = new RenderTexture(desc);
             NormalTexture.Create();
         }
-    }
-
-    /// <summary>
-    /// 設置顯示平面，顯示平面會放在 Near Clip Plane 的位置，顯示 _target 的內容
-    /// </summary>
-    void InitDisplayQuad()
-    {
-        if (_displayQuad == null)
-        {
-            // 1. 建立用於顯示的 Material
-            Material displayMaterial = new Material(Shader.Find("Unlit/TextureDisplayShader"));
-            displayMaterial.mainTexture = _target;
-
-            // 2. 建立一個 Quad 作為攝影機的子物件，用於顯示畫面
-            _displayQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            _displayQuad.GetComponent<MeshRenderer>().material = displayMaterial;
-            _displayQuad.transform.parent = _camera.transform;
-        }
-
-        // 3. 根據攝影機參數調整 Quad 的位置和大小，使其剛好填滿畫面
-        // 將 Quad 放在近裁剪平面前方一點點的位置
-        float quadPositionZ = _camera.nearClipPlane + 0.001f;
-
-        // 計算在該距離下，攝影機視野的高度和寬度
-        float quadHeight = Mathf.Tan(_camera.fieldOfView * 0.5f * Mathf.Deg2Rad) * quadPositionZ * 2f;
-        float quadWidth = quadHeight * _camera.aspect;
-
-        // 設定 Quad 的本地位置和縮放
-        _displayQuad.transform.localPosition = new Vector3(0, 0, quadPositionZ);
-        _displayQuad.transform.localScale = new Vector3(quadWidth, quadHeight, 1f);
-        _displayQuad.transform.localRotation = Quaternion.identity;
     }
 
     /// <summary>
@@ -213,20 +175,14 @@ public class RayTracer_ShaderVer : MonoBehaviour
         _aoBffer.SetData(new AOParams[] {AoParameters});
         RayTracingShader.SetConstantBuffer("AOParams", _aoBffer, 0, 5 * sizeof(float));
 
-        RayTracingShader.SetTexture(_kernel, "Result", _target2);
+        if (DoSSAO)
+            RayTracingShader.SetTexture(_kernel, "Result", _target2);
+        else
+            RayTracingShader.SetTexture(_kernel, "Result", _target);
         RayTracingShader.SetTexture(_kernel, "WorldPosTexture", WorldPosTexture);
         RayTracingShader.SetTexture(_kernel, "NormalTexture", NormalTexture);
         RayTracingShader.SetMatrix("_CameraProjectionInverse", Matrix4x4.Perspective(_camera.fieldOfView, _camera.aspect, _camera.nearClipPlane, _camera.farClipPlane).inverse);
         RayTracingShader.SetMatrix("_CameraToWorld", _camera.cameraToWorldMatrix);
         RayTracingShader.SetVector("_ScreenSize", new Vector2(Screen.width, Screen.height));
-    }
-
-    public void DestroyQuad()
-    {
-        if(_displayQuad != null)
-        {
-            Destroy(_displayQuad);
-            _displayQuad = null;
-        }
     }
 }

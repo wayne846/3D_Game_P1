@@ -8,6 +8,6 @@ public class UIController_1 : MonoBehaviour
 
     public void ClickRenderButton()
     {
-        rayTracer.Render();
+        rayTracer.enabled = true;
     }
 }
