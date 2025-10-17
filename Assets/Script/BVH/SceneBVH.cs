@@ -10,10 +10,15 @@ using UnityEngine.Windows;
 using static SceneBVH;
 
 /**
- * 這個 class 會針對每一個 GameObject 中的 Mesh 建一個 BVH
- * 當你做 Ray Trace 時，會先和每個 GameObject 的 AABB 做比較，若有相交才會和它的 BVH 做比較
+ * 這個 class 會針對每一個 GameObject 中的 Mesh 的每一個 SubMesh 建一個 BVH
+ * 當你做 Ray Trace 時，會依序將 Ray 轉到不同 GameObject 的區域座標系中，然後進行 BVH 的測試
  * 
- * 這個 class 適合 GameObject 很少，但三角面數量很多；每個 GameObject 都是剛體，只會移動、旋轉，裡面的三角型不會變形
+ * 這個 class 適合 GameObject 很少，但三角面數量很多；每個 GameObject 都是剛體，只會移動、旋轉、縮放，裡面的三角型不會變形
+ * 
+ * 使用方式：
+ * - 建構時傳入 GameObject 的列表
+ * - 每一幀在使用前呼叫 SyncMeshObjectsTransform 來將每一個 GameObject 現在的 transform 記錄下來
+ * - 使用 Trace(ray, rayDistance) 來計算 ray 打到哪個物件
  */
 public class SceneBVH
 {
@@ -29,7 +34,7 @@ public class SceneBVH
     public struct MeshObject
     {
         public Matrix4x4 localToWorldMatrix; // 64
-        public Vector4 minAABB, maxAABB;     // 32, AABB 中 xyz 最小和最大
+        public Matrix4x4 worldToLocalMatrix; // 64
         public int indices_offset;           // 4
         public int indices_count;            // 4
         public int bvhRoot;                  // 4
@@ -91,15 +96,11 @@ public class SceneBVH
                 var meshObject = new MeshObject
                 {
                     localToWorldMatrix = objects[i].transform.localToWorldMatrix,
+                    worldToLocalMatrix = objects[i].transform.localToWorldMatrix.inverse,
                     indices_offset = indicesOffset,
                     indices_count = ids.Length,
                     bvhRoot = _BVHs.Count
                 };
-
-                // 找 MinAABB, MAXAABB
-                FindAABB(meshObject.indices_offset, meshObject.indices_count, meshObject.localToWorldMatrix,
-                            out meshObject.minAABB, out meshObject.maxAABB);
-
                 _MeshObjects.Add(meshObject);
 
                 // 建立 BVH Root （包含 meshObject 中所有三角面）
@@ -114,6 +115,9 @@ public class SceneBVH
         Debug.Log(string.Format("total mesh objects = {0}, indices= {1}, vertices= {2}", _MeshObjects.Count,_Indices.Count, _Vertices.Count));
     }
 
+    /// <summary>
+    /// 將每個 GameObject 的 localToWorld Transform 計錄下來
+    /// </summary>
     public void SyncMeshObjectsTransform()
     {
         int meshObjectIdx = 0;
@@ -127,8 +131,7 @@ public class SceneBVH
                 MeshObject meshObject = _MeshObjects[meshObjectIdx];
 
                 meshObject.localToWorldMatrix = obj.transform.localToWorldMatrix;
-                FindAABB(meshObject.indices_offset, meshObject.indices_count, meshObject.localToWorldMatrix,
-                            out meshObject.minAABB, out meshObject.maxAABB);
+                meshObject.worldToLocalMatrix = obj.transform.localToWorldMatrix.inverse;
 
                 _MeshObjects[meshObjectIdx] = meshObject;
                 ++meshObjectIdx;
@@ -261,35 +264,33 @@ public class SceneBVH
 
         for (int i = 0; i < _MeshObjects.Count; ++i)
         {
-            // 打到 Mesh 的 AABB，往下搜尋 BVH
-            if (IntersectAABB(ray, rayDistance, _MeshObjects[i].minAABB, _MeshObjects[i].maxAABB)) {
-                Matrix4x4 worldToLocal = _MeshObjects[i].localToWorldMatrix.inverse;
-                PbrtRay localRay = new PbrtRay
-                {
-                    origin = worldToLocal.MultiplyPoint3x4(ray.origin),
-                    dir = worldToLocal.MultiplyVector(ray.dir).normalized
-                };
+            // 將 Ray 轉到該 Mesh Object 的區域座標系下，然後和 BVH 樹比較
+            Matrix4x4 worldToLocal = _MeshObjects[i].worldToLocalMatrix;
+            PbrtRay localRay = new PbrtRay
+            {
+                origin = worldToLocal.MultiplyPoint3x4(ray.origin),
+                dir = worldToLocal.MultiplyVector(ray.dir).normalized
+            };
 
-                float localDistance = bestHit.hitInfo.distance;
-                if (localDistance != Mathf.Infinity)
-                {
-                    Vector3 rayEnd = ray.origin + ray.dir.normalized * bestHit.hitInfo.distance;
-                    localDistance = Vector3.Distance(localRay.origin, worldToLocal.MultiplyPoint3x4(rayEnd));
-                }
-
-                // 每個 MeshObject 自己的 BVH 存放在 Local Space 下，所以 ray 要轉到區域座標
-                ExtraHitInfo bvhHit = TraceBVH(_MeshObjects[i].bvhRoot, localRay, localDistance);
-
-                // 將 bvhHit 轉回世界座標
-                bvhHit.hitInfo.position = _MeshObjects[i].localToWorldMatrix.MultiplyPoint3x4(bvhHit.hitInfo.position);
-                bvhHit.hitInfo.normal = _MeshObjects[i].localToWorldMatrix.MultiplyVector(bvhHit.hitInfo.normal);
-                bvhHit.hitInfo.distance = Vector3.Distance(ray.origin, bvhHit.hitInfo.position);
-                bvhHit.hitMesh = i;
-
-                // 如果在這個 Mesh 上打得更近
-                if (bvhHit.hitInfo.distance < bestHit.hitInfo.distance)
-                    bestHit = bvhHit;
+            float localDistance = bestHit.hitInfo.distance;
+            if (localDistance != Mathf.Infinity)
+            {
+                Vector3 rayEnd = ray.origin + ray.dir.normalized * bestHit.hitInfo.distance;
+                localDistance = Vector3.Distance(localRay.origin, worldToLocal.MultiplyPoint3x4(rayEnd));
             }
+
+            // 每個 MeshObject 自己的 BVH 存放在 Local Space 下，所以 ray 要轉到區域座標
+            ExtraHitInfo bvhHit = TraceBVH(_MeshObjects[i].bvhRoot, localRay, localDistance);
+
+            // 將 bvhHit 轉回世界座標
+            bvhHit.hitInfo.position = _MeshObjects[i].localToWorldMatrix.MultiplyPoint3x4(bvhHit.hitInfo.position);
+            bvhHit.hitInfo.normal = _MeshObjects[i].localToWorldMatrix.MultiplyVector(bvhHit.hitInfo.normal);
+            bvhHit.hitInfo.distance = Vector3.Distance(ray.origin, bvhHit.hitInfo.position);
+            bvhHit.hitMesh = i;
+
+            // 如果在這個 Mesh 上打得更近
+            if (bvhHit.hitInfo.distance < bestHit.hitInfo.distance)
+                bestHit = bvhHit;
         }
 
         return bestHit;
@@ -465,7 +466,9 @@ public class SceneBVH
     {
         foreach (var obj in _MeshObjects)
         {
-            Gizmos.DrawWireCube((Vector3)((obj.minAABB + obj.maxAABB) / 2f), (Vector3)(obj.maxAABB - obj.minAABB));
+            Vector4 minAABB, maxAABB;
+            FindAABB(obj.indices_offset, obj.indices_count, obj.localToWorldMatrix, out minAABB, out maxAABB);
+            Gizmos.DrawWireCube((Vector3)((minAABB + maxAABB) / 2f), (Vector3)(maxAABB - minAABB));
         }
     }
 

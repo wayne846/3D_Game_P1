@@ -518,6 +518,7 @@ MonoBehaviour:
   - {fileID: 1621862523}
   - {fileID: 1170000871}
   - {fileID: 1984206535}
+  AutomaticAddObjects: 0
 --- !u!1 &1170000871
 GameObject:
   m_ObjectHideFlags: 0
@@ -892,8 +893,8 @@ GameObject:
   - component: {fileID: 1621862527}
   - component: {fileID: 1621862526}
   - component: {fileID: 1621862525}
-  - component: {fileID: 1621862524}
   - component: {fileID: 1621862528}
+  - component: {fileID: 1621862524}
   m_Layer: 0
   m_Name: Cube (3)
   m_TagString: Untagged
@@ -996,12 +997,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 1621862523}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 56892e90118198d4e8a4a3e8db5f030b, type: 3}
+  m_Script: {fileID: 11500000, guid: 669457a1af047c3439cb2f89b38627df, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  moveRange: {x: 3, y: 1, z: 3}
   moveSpeed: 2
-  changeTargetInterval: 3
-  moveRange: {x: 5, y: 0, z: 5}
+  changePosInterval: 3
+  rotationSpeedRange: {x: 30, y: 60, z: 30}
+  scaleRange: {x: 0.8, y: 5}
+  scaleChangeSpeed: 1
 --- !u!1 &1984206535
 GameObject:
   m_ObjectHideFlags: 0

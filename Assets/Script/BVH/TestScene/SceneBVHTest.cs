@@ -68,7 +68,7 @@ public class SceneBVHTest : MonoBehaviour
         }
     }
 
-    private void OnDrawGizmos()
+    private void OnDrawGizmosSelected()
     {
         if (_bvh  != null)
         {
