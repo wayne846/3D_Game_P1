@@ -96,4 +96,107 @@ float3 GetNormal(ExtraHitInfo extraHitInfo)
         return N;
 }
 
+inline bool HasBVHData()
+{
+    uint count, stride;
+    _BVHNodes.GetDimensions(count, stride);
+    return count > 0;
+}
+
+inline void FetchTriangleFromPrim(uint primID, out float3 v0, out float3 v1, out float3 v2, out uint meshId)
+{
+    uint2 m = _PrimMap[primID];
+    meshId = m.x;
+    uint firstIndex = m.y;
+
+    int i0 = _Indices[firstIndex + 0];
+    int i1 = _Indices[firstIndex + 1];
+    int i2 = _Indices[firstIndex + 2];
+
+    MeshObject M = _MeshObjects[meshId];
+
+    float4 g0 = mul(M.localToWorldMatrix, float4(_Vertices[i0], 1));
+    float4 g1 = mul(M.localToWorldMatrix, float4(_Vertices[i1], 1));
+    float4 g2 = mul(M.localToWorldMatrix, float4(_Vertices[i2], 1));
+
+    v0 = g0.xyz; v1 = g1.xyz; v2 = g2.xyz;
+}
+
+ExtraHitInfo TraceBVH(Ray ray, float rayDistance)
+{
+    HitInfo bestHit = CreateEmptyHitInfo();
+    bestHit.distance = rayDistance;
+    uint   bestMesh = 0xffffffff;
+    uint   bestFirstIndex = 0xffffffff;
+    float2 bestUV = float2(-1, -1);
+
+    if (!HasBVHData())
+    {
+        ExtraHitInfo r;
+        r.hitInfo = bestHit; r.hitMesh = bestMesh; r.hitIndexOffset = bestFirstIndex; r.hitUV = bestUV;
+        return r;
+    }
+
+    uint stack[64];
+    int  sp = 0;
+    stack[sp++] = 0; 
+
+    while (sp > 0)
+    {
+        uint ni = stack[--sp];
+        BVHNode node = _BVHNodes[ni];
+
+        float tNear, tFar;
+        if (!IntersectAABB(ray, node.boundsMin, node.boundsMax, 0.0, bestHit.distance, tNear, tFar))
+            continue;
+
+        if (node.count > 0)
+        {
+            // leaf node
+            for (uint k = 0; k < node.count; ++k)
+            {
+                uint primID = _PrimIndices[node.leftFirst + k];
+
+                float3 v0, v1, v2; uint meshId;
+                FetchTriangleFromPrim(primID, v0, v1, v2, meshId);
+
+                float u, v;
+                HitInfo cand = bestHit; 
+                if (IntersectTriangle_MT97(ray, v0, v1, v2, cand, u, v))
+                {
+                    bestHit = cand;
+                    bestMesh = meshId;
+                    bestFirstIndex = _PrimMap[primID].y; 
+                    bestUV = float2(u, v);
+                }
+            }
+        }
+        else
+        {
+            // internal node
+            uint left  = node.leftFirst;
+            uint right = node.leftFirst + 1;
+
+            float tNL, tFL, tNR, tFR;
+            bool hitL = IntersectAABB(ray, _BVHNodes[left].boundsMin,  _BVHNodes[left].boundsMax,  0.0, bestHit.distance, tNL, tFL);
+            bool hitR = IntersectAABB(ray, _BVHNodes[right].boundsMin, _BVHNodes[right].boundsMax, 0.0, bestHit.distance, tNR, tFR);
+
+            if (hitL && hitR)
+            {
+                if (tNL < tNR) { stack[sp++] = right; stack[sp++] = left;  }
+                else           { stack[sp++] = left;  stack[sp++] = right; }
+            }
+            else if (hitL) stack[sp++] = left;
+            else if (hitR) stack[sp++] = right;
+        }
+    }
+
+    ExtraHitInfo result;
+    result.hitInfo        = bestHit;
+    result.hitMesh        = bestMesh;
+    result.hitIndexOffset = bestFirstIndex;
+    result.hitUV          = bestUV;
+    return result;
+}
+
 #endif

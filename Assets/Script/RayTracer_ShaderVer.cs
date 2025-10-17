@@ -29,6 +29,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
     GameObject _displayQuad; ///< 放在 Near Clip Plane 上，負責顯示渲染結果
     Camera _camera;          ///< 記錄相機 Component
     bool _firstRender;
+    int _kernel;
 
     [Tooltip("使用第 0 個 kernel 進行渲染，RenderTexture 會綁定在 Result 變數")]
     public ComputeShader RayTracingShader;
@@ -52,6 +53,10 @@ public class RayTracer_ShaderVer : MonoBehaviour
         {
             _aoBffer = new ComputeBuffer(1, 5 * sizeof(float));
         }
+
+        if (RayTracingShader != null)
+            _kernel = RayTracingShader.FindKernel("CSMain");
+
     }
 
     private void OnDisable()
@@ -105,7 +110,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
         SetupBasicParameters(); // NOTE: RayTracingShader 會渲染到 _target2
 
         // Rendering
-        RayTracingShader.Dispatch(0, Mathf.CeilToInt(Screen.width / 8), Mathf.CeilToInt(Screen.height / 8), 1);
+        RayTracingShader.Dispatch(_kernel, Mathf.CeilToInt(Screen.width / 8.0f), Mathf.CeilToInt(Screen.height / 8.0f), 1);
 
         if (DoSSAO)
         {
@@ -209,9 +214,9 @@ public class RayTracer_ShaderVer : MonoBehaviour
         _aoBffer.SetData(new AOParams[] {AoParameters});
         RayTracingShader.SetConstantBuffer("AOParams", _aoBffer, 0, 5 * sizeof(float));
 
-        RayTracingShader.SetTexture(0, "Result", _target2);
-        RayTracingShader.SetTexture(0, "WorldPosTexture", WorldPosTexture);
-        RayTracingShader.SetTexture(0, "NormalTexture", NormalTexture);
+        RayTracingShader.SetTexture(_kernel, "Result", _target2);
+        RayTracingShader.SetTexture(_kernel, "WorldPosTexture", WorldPosTexture);
+        RayTracingShader.SetTexture(_kernel, "NormalTexture", NormalTexture);
         RayTracingShader.SetMatrix("_CameraProjectionInverse", Matrix4x4.Perspective(_camera.fieldOfView, _camera.aspect, _camera.nearClipPlane, _camera.farClipPlane).inverse);
         RayTracingShader.SetMatrix("_CameraToWorld", _camera.cameraToWorldMatrix);
         RayTracingShader.SetVector("_ScreenSize", new Vector2(Screen.width, Screen.height));
