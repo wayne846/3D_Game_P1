@@ -53,6 +53,7 @@ HitInfo CreateEmptyHitInfo()
     HitInfo info;
     info.position = float3(1.#INF, 1.#INF, 1.#INF);
     info.distance = 1.#INF; // inf
+    info.normal = float3(0, 0, 0);
     return info;
 }
 
@@ -99,6 +100,8 @@ bool IntersectSphere(Ray ray, float4 sphere, inout HitInfo hitInfo)
 bool IntersectTriangle_MT97(Ray ray, float3 vert0, float3 vert1, float3 vert2,
                             inout HitInfo hitInfo, out float u, out float v)
 {   
+    u = v = 0;
+    
     // find vectors for two edges sharing vert0
     float3 edge1 = vert1 - vert0;
     float3 edge2 = vert2 - vert0;
