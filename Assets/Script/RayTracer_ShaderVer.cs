@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
-using Unity.VisualScripting.Dependencies.Sqlite;
 using UnityEngine;
 
 [RequireComponent(typeof(Camera))]
@@ -47,7 +46,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
     {
         _camera = GetComponent<Camera>();
         _firstRender = true;
-        _SSAOMat = new Material(Shader.Find("Hidden/SSAO"));
+        _SSAOMat = new Material(Shader.Find("Custom/SSAO"));
 
         if (_aoBffer == null)
         {
@@ -183,7 +182,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
         if (_displayQuad == null)
         {
             // 1. 建立用於顯示的 Material
-            Material displayMaterial = new Material(Shader.Find("Unlit/Texture"));
+            Material displayMaterial = new Material(Shader.Find("Unlit/TextureDisplayShader"));
             displayMaterial.mainTexture = _target;
 
             // 2. 建立一個 Quad 作為攝影機的子物件，用於顯示畫面

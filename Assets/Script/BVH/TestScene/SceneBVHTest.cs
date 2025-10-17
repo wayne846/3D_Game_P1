@@ -27,6 +27,7 @@ public class SceneBVHTest : MonoBehaviour
         _camera = GetComponent<Camera>();
         _mouse = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         _mouse.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+        _mouse.GetComponent<MeshRenderer>().material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         _materials = new List<Material>();
 
         foreach (var obj in ObjectsToRayTrace)
@@ -68,6 +69,7 @@ public class SceneBVHTest : MonoBehaviour
         }
     }
 
+#if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {
         if (_bvh  != null)
@@ -76,4 +78,5 @@ public class SceneBVHTest : MonoBehaviour
             _bvh.DrawTrianglesGizmos();
         }
     }
+#endif
 }

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Unity.Mathematics;
 using Unity.VisualScripting;
-using UnityEditor.PackageManager;
 using UnityEngine;
 using UnityEngine.Windows;
 using static SceneBVH;
@@ -499,7 +498,8 @@ public class SceneBVH
     }
 #endregion
 
-#region Debug
+#if UNITY_EDITOR
+    #region Debug
     public void DrawGizmos()
     {
         foreach (var obj in _MeshObjects)
@@ -584,5 +584,6 @@ public class SceneBVH
 
         return mesh;
     }
-#endregion
+    #endregion
+#endif
 }
