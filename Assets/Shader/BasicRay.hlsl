@@ -17,6 +17,8 @@ struct HitInfo
     float distance;
 };
 
+static const float INF = 3.402823466e+38f; // 最大正有限值 (IEEE 754 float)
+
 // Camera 相關參數，用來計算 CameraRay 用的
 float4x4 _CameraProjectionInverse; // Projection Matrix 的反矩陣
 float4x4 _CameraToWorld;           // View Matrix 的反矩陣
@@ -51,8 +53,8 @@ Ray CreateCameraRay(float x, float y)
 HitInfo CreateEmptyHitInfo()
 {
     HitInfo info;
-    info.position = float3(1.#INF, 1.#INF, 1.#INF);
-    info.distance = 1.#INF; // inf
+    info.position = float3(INF, INF, INF);
+    info.distance = INF; // inf
     info.normal = float3(0, 0, 0);
     return info;
 }

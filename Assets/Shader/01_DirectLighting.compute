@@ -25,7 +25,7 @@ float3 Shade(ExtraHitInfo extraHitInfo)
     
     Ray shadowRay;
     shadowRay.origin = extraHitInfo.hitInfo.position + N * 0.001;
-    float shadowRayDistance = 1.#INF;
+    float shadowRayDistance = INF;
     
     for (uint i = 0; i < lightCount; ++i)
     {
@@ -35,7 +35,7 @@ float3 Shade(ExtraHitInfo extraHitInfo)
         if (light.w == 0)
         {
             shadowRay.dir = normalize(light.xyz);
-            shadowRayDistance = 1.#INF;
+            shadowRayDistance = INF;
         }
         else
         {
@@ -79,7 +79,7 @@ float3 Shade(ExtraHitInfo extraHitInfo)
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     Ray cameraRay = CreateCameraRay(id.x, id.y);
-    ExtraHitInfo extraHitInfo = Trace(cameraRay, 1.#INF);
+    ExtraHitInfo extraHitInfo = Trace(cameraRay, INF);
     float AO = ComputeAmbientOcclusion(extraHitInfo);
     
     Result[id.xy] = float4(Shade(extraHitInfo) * AO, 1.0);

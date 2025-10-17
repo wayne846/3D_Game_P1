@@ -56,7 +56,7 @@ ExtraHitInfo Trace(Ray ray, float rayDistance)
 
 bool HasHit(ExtraHitInfo h)
 {
-    return all(isfinite(h.hitInfo.position));
+    return all(h.hitInfo.position != INF);
 }
 
 float3 GetKd(ExtraHitInfo extraHitInfo)
@@ -120,6 +120,64 @@ inline void FetchTriangleFromPrim(uint primID, out float3 v0, out float3 v1, out
     float4 g2 = mul(M.localToWorldMatrix, float4(_Vertices[i2], 1));
 
     v0 = g0.xyz; v1 = g1.xyz; v2 = g2.xyz;
+}
+
+bool IntersectAABB(in Ray ray, in float3 bMin, in float3 bMax, in float tMin, in float tMax, out float tNear, out float tFar)
+{
+    tNear = -1e20;
+    tFar = 1e20;
+
+    float3 invD = 1.0 / ray.dir;
+
+    // x slab
+    float t0 = (bMin.x - ray.origin.x) * invD.x;
+    float t1 = (bMax.x - ray.origin.x) * invD.x;
+
+    float tEnter = min(t0, t1);
+    float tExit = max(t0, t1);
+
+    tNear = max(tNear, tEnter);
+    tFar = min(tFar, tExit);
+
+    if (tNear > tFar)
+        return false;
+
+    // y slab
+    t0 = (bMin.y - ray.origin.y) * invD.y;
+    t1 = (bMax.y - ray.origin.y) * invD.y;
+
+    tEnter = min(t0, t1);
+    tExit = max(t0, t1);
+
+    tNear = max(tNear, tEnter);
+    tFar = min(tFar, tExit);
+
+    if (tNear > tFar)
+        return false;
+
+    // z slab
+    t0 = (bMin.z - ray.origin.z) * invD.z;
+    t1 = (bMax.z - ray.origin.z) * invD.z;
+
+    tEnter = min(t0, t1);
+    tExit = max(t0, t1);
+
+    tNear = max(tNear, tEnter);
+    tFar = min(tFar, tExit);
+
+    if (tNear > tFar)
+        return false;
+
+    //tmin tmax check
+    if (tFar < tMin)
+        return false;
+    if (tNear > tMax)
+        return false;
+    
+    tNear = max(tNear, tMin);
+    tFar = min(tFar, tMax);
+
+    return true;
 }
 
 ExtraHitInfo TraceBVH(Ray ray, float rayDistance)
