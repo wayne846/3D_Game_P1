@@ -9,59 +9,176 @@
 struct ExtraHitInfo
 {
     HitInfo hitInfo;
-    uint hitMesh;
-    uint hitIndexOffset;
+    int hitMesh;
+    int hitIndexOffset;
     float2 hitUV; // 重心座標，打到的點可以用 (1-u-v) * v0 + u * v1 + v * v2 內插而得
 };
 
-ExtraHitInfo Trace(Ray ray, float rayDistance)
+ExtraHitInfo CreateEmptyExtraHitInfo()
 {
-    HitInfo hitInfo = CreateEmptyHitInfo();
-    hitInfo.distance = rayDistance;
-    uint hitMesh, hitIndexOffset;
-    float2 hitUV = float2(-1, -1);
-    
-    // 對每個 Mesh 的每個三角面比較
-    uint meshCount, stride;
-    _MeshObjects.GetDimensions(meshCount, stride);
-    for (uint mesh = 0; mesh < meshCount; ++mesh)
-    {
-        MeshObject MeshObj = _MeshObjects[mesh];
-        
-        // 對於每個三角面
-        for (int offset = MeshObj.indices_offset; offset < MeshObj.indices_offset + MeshObj.indices_count; offset += 3)
-        {
-            int v0 = _Indices[offset], v1 = _Indices[offset + 1], v2 = _Indices[offset + 2];
-            float4 globalV0 = mul(MeshObj.localToWorldMatrix, float4(_Vertices[v0], 1));
-            float4 globalV1 = mul(MeshObj.localToWorldMatrix, float4(_Vertices[v1], 1));
-            float4 globalV2 = mul(MeshObj.localToWorldMatrix, float4(_Vertices[v2], 1));
-            float u = -1, v = -1;
-            
-            if (IntersectTriangle_MT97(ray, globalV0.xyz, globalV1.xyz, globalV2.xyz, hitInfo, u, v))
-            {
-                hitMesh = mesh;
-                hitIndexOffset = offset;
-                hitUV = float2(u, v);
-            }
-        }
-    }
-
-    ExtraHitInfo result;
-    result.hitInfo = hitInfo;
-    result.hitMesh = hitMesh;
-    result.hitIndexOffset = hitIndexOffset;
-    result.hitUV = hitUV;
-    return result;
+    ExtraHitInfo extra;
+    extra.hitInfo = CreateEmptyHitInfo();
+    extra.hitMesh = -1;
+    extra.hitIndexOffset = -1;
+    extra.hitUV = float2(-1, -1);
+    return extra;
 }
 
 bool HasHit(ExtraHitInfo h)
 {
-    return all(h.hitInfo.position != INF);
+    return h.hitIndexOffset != -1;
 }
+
+/// <summary>
+/// 求解 ray 是否通過 AABB，如有通過回傳 true
+/// </summary>
+bool IntersectAABB(Ray ray, float rayDistance, float4 minAABB, float4 maxAABB)
+{
+    // Note: ray上的點 = origin + t * dir, https://www.rose-hulman.edu/class/cs/csse451/AABB/
+    //       t = (ray上的點 - origin) / dir
+    float tenter = -INF, tout = INF;
+
+    // 在每個維度中，t 較小的為 Ray 的入射平面，t 較大的為 Ray 的射出平面
+    // 在所有維度中的「入射」平面中選 t 「最大」的那個為 tenter、在所有維度的「射出」平面選 t 「最小」的那個為 tout
+    // tenter <= tout && tout > 0    <=>   Ray 在 [tenter, tout] 的範圍位於 AABB 內   <=>  Ray 穿過 AABB
+
+    // X axis
+    if (ray.dir.x != 0.0f)
+    {
+        float tx1 = (minAABB.x - ray.origin.x) / ray.dir.x;
+        float tx2 = (maxAABB.x - ray.origin.x) / ray.dir.x;
+        tenter = max(tenter, min(tx1, tx2));
+        tout = min(tout, max(tx1, tx2));
+    }
+    else if (ray.origin.x < minAABB.x || ray.origin.x > maxAABB.x)
+    {
+        return false; // 平行且在盒子外
+    }
+
+    // Y axis
+    if (ray.dir.y != 0.0f)
+    {
+        float ty1 = (minAABB.y - ray.origin.y) / ray.dir.y;
+        float ty2 = (maxAABB.y - ray.origin.y) / ray.dir.y;
+        tenter = max(tenter, min(ty1, ty2));
+        tout = min(tout, max(ty1, ty2));
+    }
+    else if (ray.origin.y < minAABB.y || ray.origin.y > maxAABB.y)
+    {
+        return false;
+    }
+
+    // Z axis
+    if (ray.dir.z != 0.0f)
+    {
+        float tz1 = (minAABB.z - ray.origin.z) / ray.dir.z;
+        float tz2 = (maxAABB.z - ray.origin.z) / ray.dir.z;
+        tenter = max(tenter, min(tz1, tz2));
+        tout = min(tout, max(tz1, tz2));
+    }
+    else if (ray.origin.z < minAABB.z || ray.origin.z > maxAABB.z)
+    {
+        return false;
+    }
+
+    // Ray 直線在 distanceT 的位置為 Ray 的結尾
+    float distanceT = rayDistance / length(ray.dir);
+    // distanceT > tenter -> Ray 在結束以前有進入 AABB 的範圍內
+    return tout >= tenter && tout > 0 && distanceT > tenter;
+}
+
+ExtraHitInfo TraceBVH(int BVHroot, Ray ray, float rayDistance)
+{
+    ExtraHitInfo bestHit = CreateEmptyExtraHitInfo();
+    bestHit.hitInfo.distance = rayDistance;
+    if (BVHroot < 0)
+        return bestHit;
+
+    int stack[64];
+    int len = 0;
+    stack[len++] = BVHroot;     // 把根節點放入 stack
+
+    while (len > 0)
+    {
+        BVHNode root = _BVHs[stack[--len]];
+        
+        // 如果 ray 打到 AABB
+        if (IntersectAABB(ray, rayDistance, root.minAABB, root.maxAABB))
+        {
+            // 是葉子
+            if (root.indices_count > 0)
+            {
+                // 對於包含的每一個三角形
+                for (int i = root.indices_offset; i < root.indices_offset + root.indices_count; i += 3)
+                {
+                    float u, v;
+                    if (IntersectTriangle_MT97(ray, _Vertices[_Indices[i]], _Vertices[_Indices[i + 1]], _Vertices[_Indices[i + 2]]
+                                                , bestHit.hitInfo, u, v))
+                    {
+                        bestHit.hitIndexOffset = i;
+                        bestHit.hitUV = float2(u, v);
+                    }
+                }
+            }
+            // 是中間節點
+            else
+            {
+                // 拜訪左右子樹
+                stack[len++] = root.indices_offset;
+                stack[len++] = root.indices_offset + 1;
+            }
+        }
+    }
+
+    return bestHit;
+}
+
+ExtraHitInfo Trace(Ray ray, float rayDistance)
+{
+    ExtraHitInfo bestHit = CreateEmptyExtraHitInfo();
+    bestHit.hitInfo.distance = rayDistance;
+
+    uint meshCount, meshStride;
+    _MeshObjects.GetDimensions(meshCount, meshStride);
+    for (uint i = 0;i < meshCount; ++i)
+    {
+        // 將 Ray 轉到該 Mesh Object 的區域座標系下，然後和 BVH 樹比較
+        float4x4 worldToLocal = _MeshObjects[i].worldToLocalMatrix;
+        Ray localRay;
+        localRay.origin = mul(worldToLocal, float4(ray.origin, 1)).xyz;
+        localRay.dir = normalize(mul((float3x3)worldToLocal, ray.dir));
+
+        float localDistance = bestHit.hitInfo.distance;
+        if (localDistance != INF)
+        {
+            float3 rayEnd = ray.origin + normalize(ray.dir) * bestHit.hitInfo.distance;
+            localDistance = distance(localRay.origin, mul(worldToLocal, float4(rayEnd, 1)).xyz);
+        }
+
+        // 每個 MeshObject 自己的 BVH 存放在 Local Space 下，所以 ray 要轉到區域座標
+        ExtraHitInfo bvhHit = TraceBVH(_MeshObjects[i].bvhRoot, localRay, localDistance);
+
+        if (HasHit(bvhHit))
+        {
+            // 將 bvhHit 轉回世界座標
+            bvhHit.hitInfo.position = mul(_MeshObjects[i].localToWorldMatrix, float4(bvhHit.hitInfo.position, 1)).xyz;
+            bvhHit.hitInfo.normal = mul((float3x3)_MeshObjects[i].localToWorldMatrix, bvhHit.hitInfo.normal);
+            bvhHit.hitInfo.distance = distance(ray.origin, bvhHit.hitInfo.position);
+            bvhHit.hitMesh = i;
+            
+             // 如果在這個 Mesh 上打得更近
+            if (bvhHit.hitInfo.distance < bestHit.hitInfo.distance)
+                bestHit = bvhHit;
+        }
+    }
+
+    return bestHit;
+}
+
 
 float3 GetKd(ExtraHitInfo extraHitInfo)
 {
-    float4 Kd = _MeshObjects[extraHitInfo.hitMesh].Kd;
+    float4 Kd = _Materials[extraHitInfo.hitMesh].Kd;
     
     float3 color = Kd.xyz;
     
@@ -90,171 +207,13 @@ float3 GetNormal(ExtraHitInfo extraHitInfo)
     float3 localN = normalize((1.f - hitUV.x - hitUV.y) * normalize(_Normals[v0]) + hitUV.x * normalize(_Normals[v1]) + hitUV.y * normalize(_Normals[v2]));
     float3 N = mul(rot, localN);
     
+    if (all(N == float3(0, 0, 0)))
+        return extraHitInfo.hitInfo.normal;
+    
     if (dot(N, extraHitInfo.hitInfo.normal) < 0)
         return -N;
     else
         return N;
-}
-
-inline bool HasBVHData()
-{
-    uint count, stride;
-    _BVHNodes.GetDimensions(count, stride);
-    return count > 0;
-}
-
-inline void FetchTriangleFromPrim(uint primID, out float3 v0, out float3 v1, out float3 v2, out uint meshId)
-{
-    uint2 m = _PrimMap[primID];
-    meshId = m.x;
-    uint firstIndex = m.y;
-
-    int i0 = _Indices[firstIndex + 0];
-    int i1 = _Indices[firstIndex + 1];
-    int i2 = _Indices[firstIndex + 2];
-
-    MeshObject M = _MeshObjects[meshId];
-
-    float4 g0 = mul(M.localToWorldMatrix, float4(_Vertices[i0], 1));
-    float4 g1 = mul(M.localToWorldMatrix, float4(_Vertices[i1], 1));
-    float4 g2 = mul(M.localToWorldMatrix, float4(_Vertices[i2], 1));
-
-    v0 = g0.xyz; v1 = g1.xyz; v2 = g2.xyz;
-}
-
-bool IntersectAABB(in Ray ray, in float3 bMin, in float3 bMax, in float tMin, in float tMax, out float tNear, out float tFar)
-{
-    tNear = -1e20;
-    tFar = 1e20;
-
-    float3 invD = 1.0 / ray.dir;
-
-    // x slab
-    float t0 = (bMin.x - ray.origin.x) * invD.x;
-    float t1 = (bMax.x - ray.origin.x) * invD.x;
-
-    float tEnter = min(t0, t1);
-    float tExit = max(t0, t1);
-
-    tNear = max(tNear, tEnter);
-    tFar = min(tFar, tExit);
-
-    if (tNear > tFar)
-        return false;
-
-    // y slab
-    t0 = (bMin.y - ray.origin.y) * invD.y;
-    t1 = (bMax.y - ray.origin.y) * invD.y;
-
-    tEnter = min(t0, t1);
-    tExit = max(t0, t1);
-
-    tNear = max(tNear, tEnter);
-    tFar = min(tFar, tExit);
-
-    if (tNear > tFar)
-        return false;
-
-    // z slab
-    t0 = (bMin.z - ray.origin.z) * invD.z;
-    t1 = (bMax.z - ray.origin.z) * invD.z;
-
-    tEnter = min(t0, t1);
-    tExit = max(t0, t1);
-
-    tNear = max(tNear, tEnter);
-    tFar = min(tFar, tExit);
-
-    if (tNear > tFar)
-        return false;
-
-    //tmin tmax check
-    if (tFar < tMin)
-        return false;
-    if (tNear > tMax)
-        return false;
-    
-    tNear = max(tNear, tMin);
-    tFar = min(tFar, tMax);
-
-    return true;
-}
-
-ExtraHitInfo TraceBVH(Ray ray, float rayDistance)
-{
-    HitInfo bestHit = CreateEmptyHitInfo();
-    bestHit.distance = rayDistance;
-    uint   bestMesh = 0xffffffff;
-    uint   bestFirstIndex = 0xffffffff;
-    float2 bestUV = float2(-1, -1);
-
-    if (!HasBVHData())
-    {
-        ExtraHitInfo r;
-        r.hitInfo = bestHit; r.hitMesh = bestMesh; r.hitIndexOffset = bestFirstIndex; r.hitUV = bestUV;
-        return r;
-    }
-
-    uint stack[64];
-    int  sp = 0;
-    stack[sp++] = 0; 
-
-    while (sp > 0)
-    {
-        uint ni = stack[--sp];
-        BVHNode node = _BVHNodes[ni];
-
-        float tNear, tFar;
-        if (!IntersectAABB(ray, node.boundsMin, node.boundsMax, 0.0, bestHit.distance, tNear, tFar))
-            continue;
-
-        if (node.count > 0)
-        {
-            // leaf node
-            for (uint k = 0; k < node.count; ++k)
-            {
-                uint primID = _PrimIndices[node.leftFirst + k];
-
-                float3 v0, v1, v2; uint meshId;
-                FetchTriangleFromPrim(primID, v0, v1, v2, meshId);
-
-                float u, v;
-                HitInfo cand = bestHit; 
-                if (IntersectTriangle_MT97(ray, v0, v1, v2, cand, u, v))
-                {
-                    bestHit = cand;
-                    bestMesh = meshId;
-                    bestFirstIndex = _PrimMap[primID].y; 
-                    bestUV = float2(u, v);
-                }
-            }
-        }
-        else
-        {
-            // internal node
-            uint left  = node.leftFirst;
-            uint right = node.leftFirst + 1;
-
-            float tNL, tFL, tNR, tFR;
-            bool hitL = IntersectAABB(ray, _BVHNodes[left].boundsMin,  _BVHNodes[left].boundsMax,  0.0, bestHit.distance, tNL, tFL);
-            bool hitR = IntersectAABB(ray, _BVHNodes[right].boundsMin, _BVHNodes[right].boundsMax, 0.0, bestHit.distance, tNR, tFR);
-
-            if (hitL && hitR)
-            {
-                if (tNL < tNR) { stack[sp++] = right; stack[sp++] = left;  }
-                else           { stack[sp++] = left;  stack[sp++] = right; }
-            }
-            else if (hitL) stack[sp++] = left;
-            else if (hitR) stack[sp++] = right;
-        }
-    }
-
-    ExtraHitInfo result;
-    result.hitInfo        = bestHit;
-    result.hitMesh        = bestMesh;
-    result.hitIndexOffset = bestFirstIndex;
-    result.hitUV          = bestUV;
-    return result;
 }
 
 #endif

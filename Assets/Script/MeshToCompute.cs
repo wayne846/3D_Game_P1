@@ -2,10 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Unity.Mathematics;
 using UnityEngine;
 
 [DefaultExecutionOrder(-10)]
-public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
+public class MeshToCompute : MonoBehaviour
 {
     [Header("Target Compute")]
     public ComputeShader rayTracingCompute;
@@ -18,30 +19,26 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
     public bool flipUV_V = false;
 
     [Header("Debug (read-only)")]
-    public int meshObjectCount;
-    public int vertexCount;
-    public int indexCount;
     public int lightCount;
     public int textureLayerCount;
 
     [StructLayout(LayoutKind.Sequential)]
-    struct MeshObjectCS
+    struct MaterialGPU
     {
-        public Matrix4x4 localToWorldMatrix; // 64
-        public int indices_offset;           // 4
-        public int indices_count;            // 4
-        public Vector4 Kd;                   // (r,g,b,0) or (layer,*,*,-1)
-        public Vector4 Ks;                   // (r,g,b, smoothness)
-        public Vector4 Kt;                   // (r,g,b,0)
+        public float4 Kd; // diffuse,      (r, g, b, 0) or (TextureIndex, *, *, -1), 特定顏色 or 從特定 texture sample
+        public float4 Ks; // specular,     (r, g, b, 0)
+        public float4 Kt; // transmission, (r, g, b, 0)
     }
 
     // GPU buffers
-    ComputeBuffer _meshObjBuf, _indicesBuf, _vBuf, _nBuf, _uvBuf, _lightBuf, _lightColorsBuf;
+    ComputeBuffer _materialBuf, _lightBuf, _lightColorsBuf;
     Texture2DArray _texArray;
     int _kernel;
+    SceneBVH _sceneBVH;
 
     void OnEnable()
     {
+        _sceneBVH = null;
         if (!rayTracingCompute) { Debug.LogError("[MeshToCompute] Assign ComputeShader."); enabled = false; return; }
 
         _kernel = rayTracingCompute.FindKernel(kernelName);
@@ -50,26 +47,24 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
 
     void OnDisable()
     {
-        _meshObjBuf?.Release(); _meshObjBuf = null;
-        _indicesBuf?.Release(); _indicesBuf = null;
-        _vBuf?.Release(); _vBuf = null;
-        _nBuf?.Release(); _nBuf = null;
-        _uvBuf?.Release(); _uvBuf = null;
+        _materialBuf?.Release(); _materialBuf = null;
         _lightBuf?.Release(); _lightBuf = null;
         _lightColorsBuf?.Release(); _lightColorsBuf = null;
         if (_texArray) { Destroy(_texArray); _texArray = null; }
+    }
+
+    private void Update()
+    {
+        _sceneBVH.SyncMeshObjectsTransform();
+        _sceneBVH.UploadToShader(rayTracingCompute, _kernel);
     }
 
     public void BuildAndUpload()
     {
         var layerMap = BuildTextureArray();
 
-        var meshObjs = new List<MeshObjectCS>();
-        var allV = new List<Vector3>();
-        var allN = new List<Vector3>();
-        var allUV = new List<Vector2>();
-        var allIndices = new List<int>();
-
+        var materialList = new List<MaterialGPU>();
+        var gameObjects = new List<GameObject>();
         var inactivePolicy = includeInactiveMeshes ? FindObjectsInactive.Include : FindObjectsInactive.Exclude;
         var renderers = FindObjectsByType<MeshRenderer>(inactivePolicy, FindObjectsSortMode.None);
 
@@ -78,35 +73,13 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
             var mf = mr.GetComponent<MeshFilter>();
             if (!mf || !mf.sharedMesh) continue;
             var mesh = mf.sharedMesh;
-
-            // v n uv
-            int vtxOffset = allV.Count;
-            var V  = mesh.vertices;
-            var N  = mesh.normals;
-            var UV = mesh.uv;
-
-            bool hasN  = N  != null && N.Length  == V.Length;
-            bool hasUV = UV != null && UV.Length == V.Length;
-
-            allV.AddRange(V);
-            allN.AddRange(hasN  ? N  : FillVec3(V.Length, Vector3.up));
-            if (hasUV)
-            {
-                if (flipUV_V) { for (int i = 0; i < UV.Length; i++) UV[i].y = 1 - UV[i].y; }
-                allUV.AddRange(UV);
-            }
-            else allUV.AddRange(FillVec2(V.Length, Vector2.zero));
+            gameObjects.Add(mr.gameObject);
 
             var mats = mr.sharedMaterials;
             int subMeshCount = mesh.subMeshCount;
 
             for (int sm = 0; sm < subMeshCount; sm++)
             {
-                // indices
-                int indicesOffset = allIndices.Count;
-                var ids = mesh.GetTriangles(sm);
-                for (int i = 0; i < ids.Length; i++) allIndices.Add(vtxOffset + ids[i]);
-
                 // Kd / Ks / Kt
                 Vector4 Kd = new Vector4(1,1,1,0);
                 Vector4 Ks = new Vector4(0,0,0,0);
@@ -143,10 +116,7 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
                     Ks = new Vector4(specCol.r, specCol.g, specCol.b, Mathf.Clamp01(smooth));
                 }
 
-                meshObjs.Add(new MeshObjectCS {
-                    localToWorldMatrix = mr.localToWorldMatrix,
-                    indices_offset = indicesOffset,
-                    indices_count  = ids.Length,
+                materialList.Add(new MaterialGPU {
                     Kd = Kd, Ks = Ks, Kt = Kt
                 });
             }
@@ -178,33 +148,27 @@ public class MeshToCompute_FromSceneMeshes_AndPbrtTextures : MonoBehaviour
         }
 
         // upload
-        Upload(ref _meshObjBuf, meshObjs);
-        Upload(ref _indicesBuf,  allIndices);
-        Upload(ref _vBuf,        allV);
-        Upload(ref _nBuf,        allN);
-        Upload(ref _uvBuf,       allUV);
+        Upload(ref _materialBuf, materialList);
         Upload(ref _lightBuf,    lights);
         Upload(ref _lightColorsBuf, lightColors);
 
         var cs = rayTracingCompute;
-        cs.SetBuffer(_kernel, "_MeshObjects", _meshObjBuf);
-        cs.SetBuffer(_kernel, "_Indices",     _indicesBuf);
-        cs.SetBuffer(_kernel, "_Vertices",    _vBuf);
-        cs.SetBuffer(_kernel, "_Normals",     _nBuf);
-        cs.SetBuffer(_kernel, "_UVs",         _uvBuf);
+        cs.SetBuffer(_kernel, "_Materials", _materialBuf);
         cs.SetBuffer(_kernel, "_Lights",      _lightBuf);
         cs.SetBuffer(_kernel, "_LightColors", _lightColorsBuf);
 
         if (_texArray) { cs.SetTexture(_kernel, "_Textures", _texArray); cs.SetInt("_TextureCount", _texArray.depth); }
         else           { cs.SetInt("_TextureCount", 0); }
 
-        meshObjectCount   = meshObjs.Count;
-        vertexCount       = allV.Count;
-        indexCount        = allIndices.Count;
+
         lightCount        = lights.Count;
         textureLayerCount = _texArray ? _texArray.depth : 0;
 
-        Debug.Log($"[MeshToCompute] objs:{meshObjectCount}, v:{vertexCount}, i:{indexCount}, lights:{lightCount}, texLayers:{textureLayerCount}");
+        Debug.Log($"[MeshToCompute] lights:{lightCount}, texLayers:{textureLayerCount}");
+
+        // BVH
+        _sceneBVH = new SceneBVH(gameObjects);
+        _sceneBVH.UploadToShader(rayTracingCompute, _kernel);
     }
 
 

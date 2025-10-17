@@ -19,6 +19,8 @@ using static SceneBVH;
  * - 建構時傳入 GameObject 的列表
  * - 每一幀在使用前呼叫 SyncMeshObjectsTransform 來將每一個 GameObject 現在的 transform 記錄下來
  * - 使用 Trace(ray, rayDistance) 來計算 ray 打到哪個物件
+ * 
+ * - (Optional) 使用 UploadToShader 來將 BVH 樹和 Mesh 的 transform, indices, vertex, normals, uvs 等傳到 Compute Shader
  */
 public class SceneBVH
 {
@@ -54,11 +56,13 @@ public class SceneBVH
 
     readonly List<MeshObject> _MeshObjects = new List<MeshObject>();
     readonly List<int> _Indices = new List<int>();
+    readonly List<BVHNode> _BVHs = new List<BVHNode>();
+
     readonly List<Vector3> _Vertices = new List<Vector3>();
     readonly List<Vector3> _Normals = new List<Vector3>();
     readonly List<Vector2> _UVs = new List<Vector2>();
 
-    readonly List<BVHNode> _BVHs = new List<BVHNode>();
+    ComputeBuffer _meshObjBuf, _indicesBuf, _bvhsBuf, _vertsBuf, _normalsBuf, _uvsBuf;
 
     /**
      * 建構子，傳入場景中的物件，並為其建構 BVH
@@ -138,6 +142,37 @@ public class SceneBVH
                 ++meshObjectIdx;
             }
         }
+    }
+
+    /// <summary>
+    /// 將 bvh 儲存的內容傳進 shader，格式如同 SceneData.hlsl 描述的那樣
+    /// </summary>
+    public void UploadToShader(ComputeShader s, int kernelIndex)
+    {
+        if (_meshObjBuf == null)
+        {
+            _meshObjBuf = new ComputeBuffer(_MeshObjects.Count, 64 + 64 + 4 + 4 + 4);
+            
+            _indicesBuf = new ComputeBuffer(_Indices.Count, sizeof(int));
+            _indicesBuf.SetData(_Indices);
+            _bvhsBuf = new ComputeBuffer(_BVHs.Count, 16 + 16 + 4 + 4);
+            _bvhsBuf.SetData(_BVHs);
+            _vertsBuf = new ComputeBuffer(_Vertices.Count, 3 * sizeof(float));
+            _vertsBuf.SetData(_Vertices);
+            _normalsBuf = new ComputeBuffer(_Normals.Count, 3 * sizeof(float));
+            _normalsBuf.SetData(_Normals);
+            _uvsBuf = new ComputeBuffer(_UVs.Count, 2 * sizeof(float));
+            _uvsBuf.SetData(_UVs);
+        }
+
+        _meshObjBuf.SetData(_MeshObjects); // 每幀更新
+
+        s.SetBuffer(kernelIndex, "_MeshObjects", _meshObjBuf);
+        s.SetBuffer(kernelIndex, "_Indices", _indicesBuf);
+        s.SetBuffer(kernelIndex, "_BVHs", _bvhsBuf);
+        s.SetBuffer(kernelIndex, "_Vertices", _vertsBuf);
+        s.SetBuffer(kernelIndex, "_Normals", _normalsBuf);
+        s.SetBuffer(kernelIndex, "_UVs", _uvsBuf);
     }
 
 #region 建構 BVH
