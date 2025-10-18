@@ -62,7 +62,8 @@ float ComputeAmbientOcclusion(ExtraHitInfo info)
     }
 
     float visibility = 1.0 - occ / max(1, _AOSamples);
-    return lerp(1.0, visibility, saturate(_AOIntensity));
+    visibility = saturate(visibility);
+    return pow(visibility, max(0.0001, _AOIntensity));
 }
 
 #endif
