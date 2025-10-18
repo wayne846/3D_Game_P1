@@ -14,6 +14,7 @@ struct Material
     float4 Kd; // diffuse,      (r, g, b, 0) or (TextureIndex, *, *, -1), 特定顏色 or 從特定 texture sample
     float4 Ks; // specular,     (r, g, b, 0)
     float4 Kt; // transmission, (r, g, b, 0)
+    int bumpMapLayer; // -1 -> 沒有 bump map, >= 0 -> Textures[bumpMapLayer] 是 bump map
 };
 
 StructuredBuffer<Material> _Materials;

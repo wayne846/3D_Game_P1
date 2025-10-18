@@ -6,6 +6,8 @@
 #include "BasicRay.hlsl"
 #include "SceneData.hlsl"
 
+bool _GlobalUseBumpMap; // 是否使用 bump map
+
 struct ExtraHitInfo
 {
     HitInfo hitInfo;
@@ -176,6 +178,15 @@ ExtraHitInfo Trace(Ray ray, float rayDistance)
 }
 
 
+float2 GetTexcoord(ExtraHitInfo extraHitInfo)
+{
+    uint offset = extraHitInfo.hitIndexOffset;
+    int v0 = _Indices[offset], v1 = _Indices[offset + 1], v2 = _Indices[offset + 2];
+    float2 hitUV = extraHitInfo.hitUV;
+    float2 texcoord = (1 - hitUV.x - hitUV.y) * _UVs[v0] + hitUV.x * _UVs[v1] + hitUV.y * _UVs[v2];
+    return texcoord;
+}
+
 float3 GetKd(ExtraHitInfo extraHitInfo)
 {
     float4 Kd = _Materials[extraHitInfo.hitMesh].Kd;
@@ -183,10 +194,7 @@ float3 GetKd(ExtraHitInfo extraHitInfo)
     float3 color = Kd.xyz;
     
     // 計算 texcoord
-    uint offset = extraHitInfo.hitIndexOffset;
-    int v0 = _Indices[offset], v1 = _Indices[offset + 1], v2 = _Indices[offset + 2];
-    float2 hitUV = extraHitInfo.hitUV;
-    float2 texcoord = (1 - hitUV.x - hitUV.y) * _UVs[v0] + hitUV.x * _UVs[v1] + hitUV.y * _UVs[v2];
+    float2 texcoord = GetTexcoord(extraHitInfo);
     
     // sample (Note: Sample 不能放在 if 分支內)
     float3 colorFromTexture = _Textures.SampleLevel(sampler_Textures, float3(texcoord, Kd.x), 0).xyz;
@@ -195,25 +203,53 @@ float3 GetKd(ExtraHitInfo extraHitInfo)
     return lerp(color, colorFromTexture, -Kd.w);
 }
 
-// Phong Interpolation of Normal
+// Phong Interpolation of Normal || Bump Map
 float3 GetNormal(ExtraHitInfo extraHitInfo)
 {
-    float3x3 rot = _MeshObjects[extraHitInfo.hitMesh].localToWorldMatrix;
+    int Bump = _Materials[extraHitInfo.hitMesh].bumpMapLayer;
+    if (_GlobalUseBumpMap && Bump >= 0)
+    {
+        int width, height, elements, numberOfLevel;
+        _Textures.GetDimensions(0, width, height, elements, numberOfLevel);
+        float3 texcoord = float3(GetTexcoord(extraHitInfo), Bump);
     
-    uint offset = extraHitInfo.hitIndexOffset;
-    int v0 = _Indices[offset], v1 = _Indices[offset + 1], v2 = _Indices[offset + 2];
-    float2 hitUV = extraHitInfo.hitUV;
+        float du = 1.f / height, dv = 1.f / width;
+        float CenterHeight = _Textures.SampleLevel(sampler_Textures, texcoord, 0);
+        float duHeight = _Textures.SampleLevel(sampler_Textures, texcoord + float3(du, 0, 0), 0);
+        float dvHeight = _Textures.SampleLevel(sampler_Textures, texcoord + float3(0, dv, 0), 0);
+
+        float3 normalInTBN = normalize(cross(float3(1, 0, duHeight - CenterHeight), float3(0, 1, dvHeight - CenterHeight)));
     
-    float3 localN = normalize((1.f - hitUV.x - hitUV.y) * normalize(_Normals[v0]) + hitUV.x * normalize(_Normals[v1]) + hitUV.y * normalize(_Normals[v2]));
-    float3 N = mul(rot, localN);
+        /// TBN -> world
+        float3 oldNormal = normalize(extraHitInfo.hitInfo.normal);
+        float3 up = abs(oldNormal.y) < 0.999 ? float3(0, 1, 0) : float3(0, 0, -1);
+        float3 B = normalize(cross(up, oldNormal)); // Right ?
+        float3 T = normalize(cross(B, oldNormal));
+        float3x3 TBNtoWorld = float3x3(T.x, B.x, oldNormal.x,
+                                   T.y, B.y, oldNormal.y,
+                                   T.z, B.z, oldNormal.z);
     
-    if (all(N == float3(0, 0, 0)))
-        return extraHitInfo.hitInfo.normal;
-    
-    if (dot(N, extraHitInfo.hitInfo.normal) < 0)
-        return -N;
+        return mul(TBNtoWorld, normalInTBN);
+    }
     else
-        return N;
+    {
+        float3x3 rot = _MeshObjects[extraHitInfo.hitMesh].localToWorldMatrix;
+    
+        uint offset = extraHitInfo.hitIndexOffset;
+        int v0 = _Indices[offset], v1 = _Indices[offset + 1], v2 = _Indices[offset + 2];
+        float2 hitUV = extraHitInfo.hitUV;
+    
+        float3 localN = normalize((1.f - hitUV.x - hitUV.y) * normalize(_Normals[v0]) + hitUV.x * normalize(_Normals[v1]) + hitUV.y * normalize(_Normals[v2]));
+        float3 N = normalize(mul(rot, localN));
+    
+        if (length(N) < 0.5)
+            return extraHitInfo.hitInfo.normal;
+    
+        if (dot(N, extraHitInfo.hitInfo.normal) < 0)
+            return -N;
+        else
+            return N;
+    }
 }
 
 #endif

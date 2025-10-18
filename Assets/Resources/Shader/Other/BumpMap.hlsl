@@ -23,7 +23,7 @@ float3 GetBumpMapNormal(float2 uv, float3 oldNormal)
     
     /// TBN -> world
     oldNormal = normalize(oldNormal);
-    float3 up = abs(oldNormal.y) < 0.999 ? float3(0, 1, 0) : float3(0, 0, -1);
+    float3 up = abs(oldNormal.y) < 0.999 ? float3(0, 1, 0) : float3(0, 0, -1); // 如果原本的 normal 朝正負 Y，那 (0, 0, -1) 和 normal 外積會變右邊的向量
     float3 B = normalize(cross(up, oldNormal)); // Right ?
     float3 T = normalize(cross(B, oldNormal));
     float3x3 TBNtoWorld = float3x3(T.x, B.x, oldNormal.x,

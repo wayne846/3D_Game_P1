@@ -28,6 +28,7 @@ public class MeshToCompute : MonoBehaviour
         public float4 Kd; // diffuse,      (r, g, b, 0) or (TextureIndex, *, *, -1), 特定顏色 or 從特定 texture sample
         public float4 Ks; // specular,     (r, g, b, 0)
         public float4 Kt; // transmission, (r, g, b, 0)
+        public int bumpMapLayer;    // -1 -> 沒有 bump map, >= 0 -> Textures[bumpMapLayer] 是 bump map
     }
 
     // GPU buffers
@@ -84,6 +85,7 @@ public class MeshToCompute : MonoBehaviour
                 Vector4 Kd = new Vector4(1,1,1,0);
                 Vector4 Ks = new Vector4(0,0,0,0);
                 Vector4 Kt = new Vector4(0,0,0,0);
+                int bumpMapLayer = -1;
 
                 var mat = (sm < mats.Length) ? mats[sm] : null;
                 if (mat)
@@ -98,12 +100,14 @@ public class MeshToCompute : MonoBehaviour
 
                     var specCol = mat.HasProperty("_SpecColor") ? mat.GetColor("_SpecColor") : Color.black;
 
-                    Texture tex = null;
-                    if (mat.HasProperty("_BaseMap")) tex = mat.GetTexture("_BaseMap");
-                    else if (mat.HasProperty("_MainTex")) tex = mat.GetTexture("_MainTex");
+                    Texture texMain = null, texBump = null;
+                    if (mat.HasProperty("_BaseMap")) texMain = mat.GetTexture("_BaseMap");
+                    else if (mat.HasProperty("_MainTex")) texMain = mat.GetTexture("_MainTex");
+
+                    if (mat.HasProperty("_BumpMap")) texBump = mat.GetTexture("_BumpMap");
 
                     bool foundLayer = false;
-                    if (tex && layerMap != null && layerMap.TryGetValue(tex, out int layer))
+                    if (texMain && layerMap != null && layerMap.TryGetValue(texMain, out int layer))
                     {
                         Kd = new Vector4(layer, 0, 0, -1);
                         foundLayer = true;
@@ -114,10 +118,12 @@ public class MeshToCompute : MonoBehaviour
                     }
 
                     Ks = new Vector4(specCol.r, specCol.g, specCol.b, Mathf.Clamp01(smooth));
+
+                    if (texBump != null) bumpMapLayer = layerMap[texBump];
                 }
 
                 materialList.Add(new MaterialGPU {
-                    Kd = Kd, Ks = Ks, Kt = Kt
+                    Kd = Kd, Ks = Ks, Kt = Kt, bumpMapLayer = bumpMapLayer
                 });
             }
         }
@@ -189,13 +195,13 @@ public class MeshToCompute : MonoBehaviour
             {
                 if (!mat) continue;
 
-                Texture t = null;
-                if (mat.HasProperty("_BaseMap")) t = mat.GetTexture("_BaseMap");
-                else if (mat.HasProperty("_MainTex")) t = mat.GetTexture("_MainTex");
+                Texture2D tMain = null, tBump = null;
+                if (mat.HasProperty("_BaseMap")) tMain = mat.GetTexture("_BaseMap") as Texture2D;
+                else if (mat.HasProperty("_MainTex")) tMain = mat.GetTexture("_MainTex") as Texture2D;
+                if (tMain != null && seen.Add(tMain)) { origList.Add(tMain); packList.Add(tMain); }
 
-                var t2d = t as Texture2D;
-                if (!t2d) continue;
-                if (seen.Add(t2d)) { origList.Add(t2d);  packList.Add(t2d); }
+                if (mat.HasProperty("_BumpMap")) tBump = mat.GetTexture("_BumpMap") as Texture2D;
+                if (tBump != null && seen.Add(tBump)) { origList.Add(tBump); packList.Add(tBump); }
             }
         }
 

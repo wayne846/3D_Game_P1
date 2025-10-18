@@ -37,6 +37,9 @@ public class RayTracer_ShaderVer : MonoBehaviour
     [Tooltip("只渲染一幀")]
     public bool OnlyRenderOneTime = true;
 
+    [Tooltip("全域調整 Bump Map 的使用")]
+    public bool UseBumpMap = true;
+
     [Tooltip("")]
     public bool DoSSAO = false;
 
@@ -184,5 +187,6 @@ public class RayTracer_ShaderVer : MonoBehaviour
         RayTracingShader.SetMatrix("_CameraProjectionInverse", Matrix4x4.Perspective(_camera.fieldOfView, _camera.aspect, _camera.nearClipPlane, _camera.farClipPlane).inverse);
         RayTracingShader.SetMatrix("_CameraToWorld", _camera.cameraToWorldMatrix);
         RayTracingShader.SetVector("_ScreenSize", new Vector2(Screen.width, Screen.height));
+        RayTracingShader.SetBool("_GlobalUseBumpMap", UseBumpMap);
     }
 }
