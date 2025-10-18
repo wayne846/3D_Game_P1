@@ -6,6 +6,12 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/Menu.unity
+    guid: be3e4f3364bfbd8499bed606a23c7896
+  - enabled: 1
     path: Assets/Scenes/02_Whitted_Church.unity
     guid: fb6f96f823c16a94f9b696ae10bd3f2b
+  - enabled: 1
+    path: Assets/Scenes/03_Virtual_Point_Light.unity
+    guid: f43dfe12f0725b747be3c2bef3f22ec1
   m_configObjects: {}
