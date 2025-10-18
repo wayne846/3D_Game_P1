@@ -144,7 +144,8 @@ public class VPL_Render : MonoBehaviour
             pointLight.transform.position = newPos;
             if (newPos == target) moveStage = (moveStage + 1) % 6;
         }
-        
+
+        bvh.SyncMeshObjectsTransform();
 
         DeleteInvalidVPL();
         GenerateVPLs(!isDynamic);
@@ -193,7 +194,7 @@ public class VPL_Render : MonoBehaviour
             ClearAllVplVisualizeSphere();
         }
 
-        bvh.SyncMeshObjectsTransform();
+        
 
         for (int j = 0; j < lights.Count; j++)
         {
@@ -380,7 +381,7 @@ public class VPL_Render : MonoBehaviour
     /// <param name="endPoint">射線的終點。</param>
     /// <param name="layerMask">要檢查的圖層遮罩。預設為 Default（一切可見的物體）。</param>
     /// <returns>如果有物體阻擋，返回 true；如果路徑暢通，返回 false。</returns>
-    public static bool IsObstructed(Vector3 startPoint, Vector3 endPoint, int layerMask = ~0)
+    public bool IsObstructed(Vector3 startPoint, Vector3 endPoint, int layerMask = ~0)
     {
         // 1. 計算方向和距離
         Vector3 direction = endPoint - startPoint;
@@ -388,6 +389,12 @@ public class VPL_Render : MonoBehaviour
 
         // 將方向向量正規化
         direction.Normalize();
+
+        // 從光源位置發射隨機方向的光線
+        Ray cameraRay = new Ray();
+        cameraRay.origin = startPoint;
+        cameraRay.direction = direction;
+        SceneBVH.ExtraHitInfo hit = bvh.Trace(new PbrtRay { origin = cameraRay.origin + direction * 0.5f, dir = cameraRay.direction }, distance - 0.5f);
 
         // 2. 執行射線投射
         // Physics.Raycast(起點, 方向, 距離, 圖層遮罩)
@@ -398,7 +405,7 @@ public class VPL_Render : MonoBehaviour
         // 但由於 Unity 的 Raycast 本身設計上會忽略起點所在 Collider，通常可以省略微移。
 
         // 執行 Raycast，如果有碰撞發生，Physics.Raycast 會回傳 true
-        if (Physics.Raycast(startPoint, direction, distance - 0.5f, layerMask))
+        if (hit.hitMesh != -1)
         {
             // 有物體被擊中，表示有遮擋
             return true;
