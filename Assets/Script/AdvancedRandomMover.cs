@@ -33,6 +33,8 @@ public class AdvancedRandomMover : MonoBehaviour
 
     void Update()
     {
+        if (Time.deltaTime == 0)
+            return;
         timer += Time.deltaTime;
 
         // ----- 移動 -----

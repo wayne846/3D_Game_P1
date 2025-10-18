@@ -30,6 +30,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
     Camera _camera;          ///< 記錄相機 Component
     bool _firstRender;
     int _kernel;
+    int _savedShow = 0;
 
     [Tooltip("使用第 0 個 kernel 進行渲染，RenderTexture 會綁定在 Result 變數")]
     public ComputeShader RayTracingShader;
@@ -67,6 +68,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
     [ContextMenu("Export Ray Tracing Result")]
     public void ExportTexture()
     {
+        _savedShow = 10;
         if (!Application.isPlaying)
             return;
 
@@ -188,5 +190,16 @@ public class RayTracer_ShaderVer : MonoBehaviour
         RayTracingShader.SetMatrix("_CameraToWorld", _camera.cameraToWorldMatrix);
         RayTracingShader.SetVector("_ScreenSize", new Vector2(Screen.width, Screen.height));
         RayTracingShader.SetBool("_GlobalUseBumpMap", UseBumpMap);
+    }
+
+    void OnGUI()
+    {
+        if (OnlyRenderOneTime)
+            GUI.Label(new Rect(10, 10, 300, 30), "只渲染一幀");
+        if (_savedShow > 0)
+        {
+            GUI.Label(new Rect(10, 40, 300, 30), "已儲存截圖");
+            --_savedShow;
+        }
     }
 }
