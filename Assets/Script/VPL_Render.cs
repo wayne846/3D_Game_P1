@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 
@@ -48,6 +49,9 @@ public class VPL_Render : MonoBehaviour
     bool isOnlyOneVpl = false;
     int onlyOneVplIndex = 0;
 
+    List<GameObject> ObjectsToRayTrace = new List<GameObject>();
+    SceneBVH bvh;
+
     public struct VPL
     {
         public Vector3 position;
@@ -83,11 +87,18 @@ public class VPL_Render : MonoBehaviour
         string sceneFilePath = System.IO.Path.Combine(Application.streamingAssetsPath, sceneFileName);
         LoatScene(sceneFilePath);
 
+        // 設定可視化光源球體
         visualizeLight = CreateVplVisualizeSphere(pointLight.transform.position, 0.1f, Color.red);
         visualizeLight.transform.SetParent(pointLight.transform);
         visualizeLight.transform.localPosition = Vector3.zero;
         visualizeLight.layer = 2;
         visualizeLight.SetActive(false);
+        
+        // 建立BVH
+        ObjectsToRayTrace.Clear();
+        var renderers = GameObject.FindObjectsOfType<MeshRenderer>();
+        ObjectsToRayTrace.AddRange(from R in renderers select R.gameObject);
+        bvh = new SceneBVH(ObjectsToRayTrace);
 
         // 1. 建立一個用於渲染陰影的隱藏相機
         CreateShadowCamera();
@@ -181,24 +192,26 @@ public class VPL_Render : MonoBehaviour
             vplList.Clear();
             ClearAllVplVisualizeSphere();
         }
-        
+
+        bvh.SyncMeshObjectsTransform();
+
         for (int j = 0; j < lights.Count; j++)
         {
 
             for (int i = vplList.Count; i < numberOfVPLs; i++)
             {
                 // 從光源位置發射隨機方向的光線
+                Ray cameraRay = new Ray();
                 Vector3 randomDirection = Random.onUnitSphere;
-                PbrtRay ray;
-                ray.origin = new Vector3(lights[j].x, lights[j].y, lights[j].z);
-                ray.dir = randomDirection;
-                PbrtHitInfo hitInfo;
+                cameraRay.origin = new Vector3(lights[j].x, lights[j].y, lights[j].z);
+                cameraRay.direction = randomDirection;
+                SceneBVH.ExtraHitInfo hit = bvh.Trace(new PbrtRay { origin = cameraRay.origin, dir = cameraRay.direction }, Mathf.Infinity);
 
-                if (scene.intersect(ray, new Interval(0, float.PositiveInfinity), out hitInfo))
+                if (hit.hitMesh != -1)
                 {
                     // 在碰撞點建立一個 VPL
                     VPL newVpl = new VPL();
-                    newVpl.position = hitInfo.position + hitInfo.normal * 0.1f; // 稍微偏移以避免 z-fighting
+                    newVpl.position = hit.hitInfo.position + hit.hitInfo.normal * 0.1f; // 稍微偏移以避免 z-fighting
 
                     // 顏色可以先用光源顏色，之後可以根據材質和衰減計算
                     newVpl.color = new Color(lightColors[j].x, lightColors[j].y, lightColors[j].z);
