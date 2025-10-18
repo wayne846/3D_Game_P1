@@ -1,13 +1,18 @@
 using System.Collections;
 using System.Collections.Generic;
+//using System.Text.Json.Serialization;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 public class UIController_1 : MonoBehaviour
 {
     [SerializeField] private RayTracer_ShaderVer rayTracer = null;
     [SerializeField] private TextMeshProUGUI aoSampleText = null;
     [SerializeField] private TextMeshProUGUI aoRadiusText = null;
+    [SerializeField] private TextMeshProUGUI aoIntensityText = null;
+    public Slider aoIntensitySlider;
 
     public void ClickRenderButton()
     {
@@ -56,5 +61,16 @@ public class UIController_1 : MonoBehaviour
     public void ClickBumpMapToggle(bool b)
     {
         rayTracer.UseBumpMap = b;
+    }
+
+    public void UpdateIntensity()
+    {
+        rayTracer.AoParameters._AOIntensity = aoIntensitySlider.value;
+        aoIntensityText.text = aoIntensitySlider.value.ToString("F2");
+    }
+
+    public void ClickBackButton()
+    {
+        SceneManager.LoadScene("Menu");
     }
 }
