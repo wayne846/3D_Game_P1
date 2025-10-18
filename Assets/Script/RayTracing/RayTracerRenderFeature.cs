@@ -57,7 +57,8 @@ public class RayTracerRenderFeature : ScriptableRendererFeature
     // This method is called when setting up the renderer once per-camera.
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
-        renderer.EnqueuePass(m_ScriptablePass);
+        if (renderingData.cameraData.cameraType == CameraType.Game)
+            renderer.EnqueuePass(m_ScriptablePass);
     }
 }
 
