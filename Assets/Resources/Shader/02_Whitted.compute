@@ -4,6 +4,7 @@
 #include "SceneData.hlsl"
 #include "SceneTrace.hlsl"
 #include "AmbientOcclusion.hlsl"
+#include "JitteredSuperSampling.hlsl"
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
@@ -183,11 +184,36 @@ float3 Shade(Ray currentRay, ExtraHitInfo extraHitInfo)
 [numthreads(8, 8, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
-    Ray cameraRay = CreateCameraRay(id.x, id.y);
-    ExtraHitInfo extraHitInfo = Trace(cameraRay, INF);
-    float AO = ComputeAmbientOcclusion(extraHitInfo);
+    if(_JitterOn == 0){
+        Ray cameraRay = CreateCameraRay(id.x, id.y);
+        ExtraHitInfo extraHitInfo = Trace(cameraRay, INF);
+        float AO = ComputeAmbientOcclusion(extraHitInfo);
+        
+        Result[id.xy] = float4(Shade(cameraRay, extraHitInfo) * AO, 1.0);
+        WorldPosTexture[id.xy] = float4(extraHitInfo.hitInfo.position, 1);
+        NormalTexture[id.xy] = float4(extraHitInfo.hitInfo.normal, 0);
+        return;
+    }
+    else if(_JitterOn == 1){
+        float3 colorSum = float3(0,0,0);
+        //center ray
+        Ray centerRay = CreateCameraRay(id.x, id.y);
+        ExtraHitInfo centerHit = Trace(centerRay, INF);
+        WorldPosTexture[id.xy] = float4(centerHit.hitInfo.position, 1);
+        NormalTexture[id.xy]   = float4(centerHit.hitInfo.normal, 0);
+
+        //jittered rays
+        for(int s = 0; s < _SPP; ++s){
+            float2 u = Hammersley(s + _FrameIndex * _SPP, _SPP);
+            float2 jitter = u - 0.5;
+
+            Ray cameraRay = CreateCameraRayJittered(id.x, id.y, jitter);
+            ExtraHitInfo hit = Trace(cameraRay, INF);
+            float AO = ComputeAmbientOcclusion(hit);
+
+            colorSum += Shade(cameraRay, hit) * AO;
+        }
+        Result[id.xy] = float4(colorSum / max(1, _SPP), 1.0);
+    }
     
-    Result[id.xy] = float4(Shade(cameraRay, extraHitInfo) * AO, 1.0);
-    WorldPosTexture[id.xy] = float4(extraHitInfo.hitInfo.position, 1);
-    NormalTexture[id.xy] = float4(extraHitInfo.hitInfo.normal, 0);
 }

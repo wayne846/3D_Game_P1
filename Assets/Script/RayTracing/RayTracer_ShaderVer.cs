@@ -20,12 +20,21 @@ public class RayTracer_ShaderVer : MonoBehaviour
         public float _AOBias;
         public float _AOIntensity;
     };
+    [Serializable, StructLayout(LayoutKind.Sequential)]
+    public struct JSSParams
+    {
+        [Range(0, 1)]
+        public int  _JitterOn;
+        public int _SPP;
+        public int _FrameIndex;
+    };
 
     RenderTexture _target;   ///< 一般：直接渲染在 _target, SSAO: 先渲染在 _target2 再渲染到 _target
     RenderTexture _target2;
     RenderTexture WorldPosTexture;
     RenderTexture NormalTexture;
     ComputeBuffer _aoBffer;
+    ComputeBuffer _jssBuffer;
     Material _SSAOMat;
     Camera _camera;          ///< 記錄相機 Component
     bool _firstRender;
@@ -49,13 +58,15 @@ public class RayTracer_ShaderVer : MonoBehaviour
 
     [Tooltip("AO 的設定")]
     public AOParams AoParameters = new AOParams { _AOUse = 0, _AOSamples = 4, _AORadius = 0.06f, _AOBias = 0.006f, _AOIntensity = 1f };
-
+    [Tooltip("JSS 的設定")]
+    public  JSSParams jssParameters = new JSSParams { _JitterOn = 0, _SPP = 4, _FrameIndex = 1 };
     private void OnEnable()
     {
         _camera = GetComponent<Camera>();
         _firstRender = true;
         _SSAOMat = new Material(Shader.Find("Custom/SSAO"));
         _aoBffer = new ComputeBuffer(1, 5 * sizeof(float));
+        _jssBuffer = new ComputeBuffer(1, 3 * sizeof(int));
         _kernel = RayTracingShader.FindKernel("CSMain");
     }
 
@@ -66,6 +77,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
         NormalTexture.Release(); NormalTexture = null;
         GameObject.Destroy(_SSAOMat); _SSAOMat = null;
         _aoBffer.Release(); _aoBffer = null;
+        _jssBuffer.Release(); _jssBuffer = null;
     }
 
     [ContextMenu("Export Ray Tracing Result")]
@@ -182,7 +194,8 @@ public class RayTracer_ShaderVer : MonoBehaviour
     {
         _aoBffer.SetData(new AOParams[] {AoParameters});
         RayTracingShader.SetConstantBuffer("AOParams", _aoBffer, 0, 5 * sizeof(float));
-
+        _jssBuffer.SetData(new JSSParams[] { jssParameters });
+        RayTracingShader.SetConstantBuffer("JitterParams", _jssBuffer, 0, 3 * sizeof(int));
         if (DoSSAO)
             RayTracingShader.SetTexture(_kernel, "Result", _target2);
         else
