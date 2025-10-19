@@ -24,6 +24,8 @@ const static float EPSILON = 1e-3;
 // 對 shadow Ray 進行追蹤，如果有打到物體，則光線衰減
 void TraceShadowRay(Ray shadowRay, float shadowRayDistance, inout float3 lightColor)
 {
+    float3 EnterSolidPos = float3(0, 0, 0);
+    
     for (int i = 0; i < 3; ++i)
     {
         ExtraHitInfo extraHitInfo = Trace(shadowRay, shadowRayDistance);
@@ -42,7 +44,25 @@ void TraceShadowRay(Ray shadowRay, float shadowRayDistance, inout float3 lightCo
         }
         
         // 打到透明物體 -> 衰減 -> 繼續打 shadow ray
+        float3 Kd = GetKd(extraHitInfo);
+        if (any(Kd > float3(EPSILON, EPSILON, EPSILON)))
+            lightColor *= Kd;
         lightColor *= Kt;
+        
+        // 打到 solid -> Beer's Law
+        if (_Materials[extraHitInfo.hitMesh].isSolid == 1)
+        {
+            if (HitTheBackSide(extraHitInfo))
+            {
+                float dist = distance(EnterSolidPos, extraHitInfo.hitInfo.position);
+                lightColor *= 1 / pow(10, dist);
+            }
+            else
+            {
+                EnterSolidPos = extraHitInfo.hitInfo.position;
+            }
+        }
+        
         shadowRay.origin = extraHitInfo.hitInfo.position + shadowRay.dir * EPSILON;
         shadowRayDistance -= (extraHitInfo.hitInfo.distance + EPSILON);
     }
