@@ -87,6 +87,11 @@ public class UIController_1 : MonoBehaviour
         rayTracer.jssParameters._SPP = (int)jssSppSlider.value;
         jssSPPText.text = jssSppSlider.value.ToString();
     }
+    public void ClickFresnelToggle(bool b)
+    {
+        rayTracer.UseFresnel = b;
+    }
+    
 
     
 
