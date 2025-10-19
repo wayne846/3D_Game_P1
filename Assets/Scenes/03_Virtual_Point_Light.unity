@@ -4474,6 +4474,8 @@ MonoBehaviour:
   shadowFarClip: 100
   isDynamic: 1
   isMoveLight: 0
+  redMaterial: {fileID: 2100000, guid: 0809e21bd840c1e479bd33b9a1ed5444, type: 2}
+  yellowMaterial: {fileID: 2100000, guid: 4d832d520351ef447a5ce90350c02d4d, type: 2}
 --- !u!21 &1025995924
 Material:
   serializedVersion: 8

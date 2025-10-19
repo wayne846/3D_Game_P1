@@ -37,6 +37,9 @@ public class VPL_Render : MonoBehaviour
     public bool isDynamic = true;
     public bool isMoveLight = false;
 
+    public Material redMaterial = null;
+    public Material yellowMaterial = null;
+
     List<VPL> vplList = new List<VPL>();
     List<GameObject> vplVisualizeSphere = new List<GameObject>();
     ComputeBuffer vplBuffer;
@@ -458,24 +461,34 @@ public class VPL_Render : MonoBehaviour
 
         if (renderer != null)
         {
-            // 為了不影響其他使用相同材質的物件，建議使用 .material 而非 .sharedMaterial
-            // 註: 每次使用 .material 會建立一個新的材質實例
-            Material material = renderer.material;
+            if(color == Color.red)
+            {
+                renderer.material = redMaterial;
+            }else if(color == Color.yellow)
+            {
+                renderer.material = yellowMaterial;
+            }
+            else
+            {
+                // 為了不影響其他使用相同材質的物件，建議使用 .material 而非 .sharedMaterial
+                // 註: 每次使用 .material 會建立一個新的材質實例
+                Material material = renderer.material;
 
-            // 將材質的顏色設定為指定顏色
-            // 這是針對 Standard Shader 最常見的設定方式
-            material.color = color;
-            material.EnableKeyword("_EMISSION");
-            material.SetColor("_EmissionColor", color);
+                // 將材質的顏色設定為指定顏色
+                // 這是針對 Standard Shader 最常見的設定方式
+                material.color = color;
+                material.EnableKeyword("_EMISSION");
+                material.SetColor("_EmissionColor", color);
 
-            // 確保材質的渲染模式是支援透明度的 (如果顏色有透明度)
-            // 如果只需要純色，可以忽略這一步
-            // material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
-            // material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
-            // material.SetInt("_ZWrite", 1);
-            // material.DisableKeyword("_ALPHABLEND_ON");
-            // material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            // material.SetInt("_Mode", (int)UnityEngine.Rendering.SurfaceType.Opaque); 
+                // 確保材質的渲染模式是支援透明度的 (如果顏色有透明度)
+                // 如果只需要純色，可以忽略這一步
+                // material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                // material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+                // material.SetInt("_ZWrite", 1);
+                // material.DisableKeyword("_ALPHABLEND_ON");
+                // material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                // material.SetInt("_Mode", (int)UnityEngine.Rendering.SurfaceType.Opaque); 
+            }
         }
 
         sphere.layer = 2;
