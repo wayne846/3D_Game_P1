@@ -14,7 +14,7 @@ struct Material
     float4 Kd; // diffuse,      (r, g, b, 0) or (TextureIndex, *, *, -1), 特定顏色 or 從特定 texture sample
     float4 Ks; // specular,     (r, g, b, 0)
     float4 Kt; // transmission, (r, g, b, 空氣折射率 / 介質折射率)
-    int bumpMapLayer; // -1 -> 沒有 bump map, >= 0 -> Textures[bumpMapLayer] 是 bump map
+    int bumpMapLayer; // -1 -> 沒有 bump map, >= 0 -> Textures[bumpMapLayer] 是 bump map, -2 -> Perlin Noise
     int isSolid; // 0 or 1，是不是固體，如果是的話則 Ray 從裡面往外射時折射率會取倒數
 };
 

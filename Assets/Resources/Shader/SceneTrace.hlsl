@@ -5,6 +5,7 @@
 
 #include "BasicRay.hlsl"
 #include "SceneData.hlsl"
+#include "Other/PerlinNoise.hlsl"
 
 bool _GlobalUseBumpMap; // 是否使用 bump map
 
@@ -207,16 +208,26 @@ float3 GetKd(ExtraHitInfo extraHitInfo)
 float3 GetNormal(ExtraHitInfo extraHitInfo)
 {
     int Bump = _Materials[extraHitInfo.hitMesh].bumpMapLayer;
-    if (_GlobalUseBumpMap && Bump >= 0)
+    if (_GlobalUseBumpMap && (Bump >= 0 || Bump == -2))
     {
         int width, height, elements, numberOfLevel;
         _Textures.GetDimensions(0, width, height, elements, numberOfLevel);
         float3 texcoord = float3(GetTexcoord(extraHitInfo), Bump);
     
-        float du = 1.f / height, dv = 1.f / width;
-        float CenterHeight = _Textures.SampleLevel(sampler_Textures, texcoord, 0);
-        float duHeight = _Textures.SampleLevel(sampler_Textures, texcoord + float3(du, 0, 0), 0);
-        float dvHeight = _Textures.SampleLevel(sampler_Textures, texcoord + float3(0, dv, 0), 0);
+        float CenterHeight, duHeight, dvHeight;
+        if (Bump >= 0)
+        {
+            float du = 1.f / height, dv = 1.f / width;
+            CenterHeight = _Textures.SampleLevel(sampler_Textures, texcoord, 0);
+            duHeight = _Textures.SampleLevel(sampler_Textures, texcoord + float3(du, 0, 0), 0);
+            dvHeight = _Textures.SampleLevel(sampler_Textures, texcoord + float3(0, dv, 0), 0);
+        }
+        else
+        {
+            CenterHeight = perlinNoise(texcoord.xy);
+            duHeight = perlinNoise(texcoord.xy + float2(1, 0));
+            dvHeight = perlinNoise(texcoord.xy + float2(0, 1));
+        }
 
         float3 normalInTBN = normalize(cross(float3(1, 0, duHeight - CenterHeight), float3(0, 1, dvHeight - CenterHeight)));
     
@@ -229,7 +240,7 @@ float3 GetNormal(ExtraHitInfo extraHitInfo)
                                    T.y, B.y, oldNormal.y,
                                    T.z, B.z, oldNormal.z);
     
-        return mul(TBNtoWorld, normalInTBN);
+        return normalize(mul(TBNtoWorld, normalInTBN));
     }
     else
     {

@@ -28,7 +28,7 @@ public class MeshToCompute : MonoBehaviour
         public float4 Kd; // diffuse,      (r, g, b, 0) or (TextureIndex, *, *, -1), 特定顏色 or 從特定 texture sample
         public float4 Ks; // specular,     (r, g, b, 0)
         public float4 Kt; // transmission, (r, g, b, 空氣的折射率 / 介質的折射率)
-        public int bumpMapLayer;    // -1 -> 沒有 bump map, >= 0 -> Textures[bumpMapLayer] 是 bump map
+        public int bumpMapLayer;    // -1 -> 沒有 bump map, >= 0 -> Textures[bumpMapLayer] 是 bump map, -2 -> Perlin Noise
         public int isSolid; // 0 or 1，是不是固體，如果是的話則 Ray 從裡面往外射時折射率會取倒數
     }
 
@@ -127,6 +127,8 @@ public class MeshToCompute : MonoBehaviour
                     Kt = new Vector4(transmissive.r, transmissive.g, transmissive.b, transmissive.a);
 
                     if (texBump != null) bumpMapLayer = layerMap[texBump];
+                    if (mat.HasProperty("_UseBumpMap") && mat.GetFloat("_UseBumpMap") == 2)
+                        bumpMapLayer = -2;
 
                     if (mat.HasProperty("_IsSolid")) isSolid = Mathf.FloorToInt(mat.GetFloat("_IsSolid"));
                 }

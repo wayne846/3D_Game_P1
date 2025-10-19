@@ -17,7 +17,7 @@ Shader "Custom/LocalShading"
 
         [Header(Bump Map)]
         _BumpMap("Bump Map", 2D) = "black" {}
-        _UseBumpMap("Whether to use bump map", Range(0, 1)) = 0
+        _UseBumpMap("Whether to use bump map", Range(0, 2)) = 0
     }
     SubShader
     {
