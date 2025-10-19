@@ -23,7 +23,6 @@ public class FreeCameraController : MonoBehaviour
     private float rotationX;
     private float rotationY;
     private bool isMovedOrRotated;
-    private float avgDeltaTime;
 
     void Start()
     {
@@ -31,13 +30,10 @@ public class FreeCameraController : MonoBehaviour
         Vector3 euler = transform.eulerAngles;
         rotationX = euler.y;
         rotationY = euler.x;
-        avgDeltaTime = 0;
     }
 
     void Update()
     {
-        if (Time.deltaTime > 0)
-            avgDeltaTime = (avgDeltaTime + Time.deltaTime) / 2;
         isMovedOrRotated = false;
         HandleMouseLook();
         HandleMovement();
@@ -90,7 +86,7 @@ public class FreeCameraController : MonoBehaviour
         moveSpeed = Mathf.Clamp(moveSpeed, 0.1f, 50f);
 
         float speed = moveSpeed * (Input.GetKey(KeyCode.LeftShift) ? fastMoveMultiplier : 1f);
-        transform.position += moveDir.normalized * speed * (Time.deltaTime > 0 ? Time.deltaTime : avgDeltaTime);
+        transform.position += moveDir.normalized * speed * Time.unscaledDeltaTime;
     }
 }
 

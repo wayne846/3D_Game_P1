@@ -13,8 +13,9 @@ struct Material
 {
     float4 Kd; // diffuse,      (r, g, b, 0) or (TextureIndex, *, *, -1), 特定顏色 or 從特定 texture sample
     float4 Ks; // specular,     (r, g, b, 0)
-    float4 Kt; // transmission, (r, g, b, 0)
+    float4 Kt; // transmission, (r, g, b, 空氣折射率 / 介質折射率)
     int bumpMapLayer; // -1 -> 沒有 bump map, >= 0 -> Textures[bumpMapLayer] 是 bump map
+    int isSolid; // 0 or 1，是不是固體，如果是的話則 Ray 從裡面往外射時折射率會取倒數
 };
 
 StructuredBuffer<Material> _Materials;
@@ -46,7 +47,7 @@ StructuredBuffer<int> _Indices; // 哪幾個頂點構成一個面
 StructuredBuffer<BVHNode> _BVHs; // 將所有 BVH 樹的節點存成陣列
 
 StructuredBuffer<float3> _Vertices; // 每個頂點的位置    (x, y, z)
-StructuredBuffer<float3> _Normals;  // 每個頂點的法向量   (x, y, z)
+StructuredBuffer<float3> _Normals;  // 每個頂點的法向量   (x, y, z)， 沒法向量填 (0, 0, 0)
 StructuredBuffer<float2> _UVs;      // 每個頂點的貼圖座標 (u, v), 沒貼圖座標填 (0, 0)
 
 

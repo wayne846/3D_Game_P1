@@ -252,4 +252,18 @@ float3 GetNormal(ExtraHitInfo extraHitInfo)
     }
 }
 
+bool HitTheBackSide(ExtraHitInfo extraHitInfo)
+{
+    float3x3 rot = _MeshObjects[extraHitInfo.hitMesh].localToWorldMatrix;
+    
+    uint offset = extraHitInfo.hitIndexOffset;
+    int v0 = _Indices[offset], v1 = _Indices[offset + 1], v2 = _Indices[offset + 2];
+    float2 hitUV = extraHitInfo.hitUV;
+    
+    float3 localN = normalize((1.f - hitUV.x - hitUV.y) * normalize(_Normals[v0]) + hitUV.x * normalize(_Normals[v1]) + hitUV.y * normalize(_Normals[v2]));
+    float3 N = normalize(mul(rot, localN));
+    
+    return dot(N, extraHitInfo.hitInfo.normal) < 0;
+}
+
 #endif

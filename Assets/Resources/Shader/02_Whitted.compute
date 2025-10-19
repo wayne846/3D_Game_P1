@@ -11,25 +11,82 @@ RWTexture2D<float4> Result;
 RWTexture2D<float4> WorldPosTexture;
 RWTexture2D<float4> NormalTexture;
 
+// Schlick’s Approximation
+bool _GlobalUseFresnel = true;
+float3 FresnelSchlick(float cosTheta, float3 F0)
+{
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
+const static float EPSILON = 1e-3;
+
+// 對 shadow Ray 進行追蹤，如果有打到物體，則光線衰減
+void TraceShadowRay(Ray shadowRay, float shadowRayDistance, inout float3 lightColor)
+{
+    for (int i = 0; i < 3; ++i)
+    {
+        ExtraHitInfo extraHitInfo = Trace(shadowRay, shadowRayDistance);
+        
+        // 打 shadow ray 過去沒打到任何東西 -> 不衰減
+        if (!HasHit(extraHitInfo))
+            return;
+
+        float3 Kt = _Materials[extraHitInfo.hitMesh].Kt;
+        
+        // 打到不透明的物體
+        if (length(Kt) == 0)
+        {
+            lightColor = float3(0, 0, 0);
+            return;
+        }
+        
+        // 打到透明物體 -> 衰減 -> 繼續打 shadow ray
+        lightColor *= Kt;
+        shadowRay.origin = extraHitInfo.hitInfo.position + shadowRay.dir * EPSILON;
+        shadowRayDistance -= (extraHitInfo.hitInfo.distance + EPSILON);
+    }
+}
+
+#define MAX_DEPTH 3
+struct ShadeData
+{
+    ExtraHitInfo extraHitInfo;
+    float3 InDir;
+    float3 RayPower;
+    int Depth;
+};
+
 float3 Shade(Ray currentRay, ExtraHitInfo extraHitInfo)
 {
     float3 color = float3(0, 0, 0);
     uint lightCount, stride;
     _Lights.GetDimensions(lightCount, stride);
-    float3 Ks = float3(1, 1, 1);
     
-    for (int i = 0; i < 3; ++i)
+    ShadeData stack[MAX_DEPTH];
+    int len = 0;
+    stack[0].extraHitInfo = extraHitInfo;
+    stack[0].RayPower = float3(1, 1, 1);
+    stack[0].Depth = 0;
+    stack[0].InDir = currentRay.dir;
+    ++len;
+    stack[1] = stack[0];
+    stack[2] = stack[0];
+    
+    while (len > 0)
     {
-        // 沒打到任何東西
-        if (!HasHit(extraHitInfo))
-            return color;
+        ShadeData top = stack[--len];
         
-        const float3 N = GetNormal(extraHitInfo);
+        // 沒打到任何東西
+        if (!HasHit(top.extraHitInfo))
+            continue;
+        
+        const float3 N = GetNormal(top.extraHitInfo);
+        const float3 Kd = GetKd(top.extraHitInfo);
         
         Ray shadowRay;
-        shadowRay.origin = extraHitInfo.hitInfo.position + N * 0.001;
+        shadowRay.origin = top.extraHitInfo.hitInfo.position + N * EPSILON;
         float shadowRayDistance = INF;
-    
+        
         for (uint i = 0; i < lightCount; ++i)
         {
             float4 light = _Lights[i];
@@ -46,45 +103,78 @@ float3 Shade(Ray currentRay, ExtraHitInfo extraHitInfo)
                 shadowRayDistance = distance(light.xyz, shadowRay.origin);
             }
 
-            ExtraHitInfo shadowHit = Trace(shadowRay, shadowRayDistance);
-        
-            // 被遮住（有打到東西）
-            if (HasHit(shadowHit))
+            float3 lightColor = _LightColors[i];
+            TraceShadowRay(shadowRay, shadowRayDistance, lightColor);
+            if (all(lightColor < float3(EPSILON, EPSILON, EPSILON)))
                 continue;
         
             // 計算 Phong Shading
-            if (dot(N, shadowRay.dir) > 0)
-            {
-                // Diffuse
-                float3 Kd = GetKd(extraHitInfo);
-                float NdotL = max(dot(N, shadowRay.dir), 0);
-                float3 diffuse = Kd * _LightColors[i] * NdotL;
+            // Diffuse
+            float NdotL = abs(dot(N, shadowRay.dir));
+            float3 diffuse = Kd * lightColor * NdotL;
                 
-                // Geometry Term
-                float G = 1;
-                if (light.w == 1) // Point Light
-                    G = 1 / (shadowRayDistance * shadowRayDistance + 1.0);
+            // Geometry Term
+            float G = 1;
+            if (light.w == 1) // Point Light
+                G = 1 / (shadowRayDistance * shadowRayDistance + 1.0);
 
-                color += diffuse * Ks * G;
-            }
+            color += diffuse * top.RayPower * G;
         }
         
-        // specular ray
-        Ks = _Materials[extraHitInfo.hitMesh].Ks;
-        if (length(Ks) > 0.001)
-        {
-            // 產生 specular ray
-            Ray specularRay;
-            specularRay.origin = shadowRay.origin; // 物體的位置
-            specularRay.dir = reflect(currentRay.dir, N);
-            ExtraHitInfo specularHit = Trace(specularRay, INF);
+        if (top.Depth != (MAX_DEPTH - 1))
+        {   
+            // specular ray
+            float3 Ks = _Materials[top.extraHitInfo.hitMesh].Ks.xyz;
+            float3 Kt = _Materials[top.extraHitInfo.hitMesh].Kt.xyz;
+            
+            if (_GlobalUseFresnel && length(Ks) > 0 && length(Kt) > 0)
+            {
+                float cosTheta = saturate(dot(N, -top.InDir));
+                Ks = FresnelSchlick(cosTheta, Ks);
+                Kt = 1 - Ks;
+            }
+            
+            Ks *= top.RayPower;
+            Kt *= top.RayPower;
+            
+            if (length(Ks) > EPSILON && len < MAX_DEPTH)
+            {
+                // 產生 specular ray
+                Ray specularRay;
+                specularRay.origin = shadowRay.origin; // 物體的位置
+                specularRay.dir = reflect(top.InDir, N);
                 
-            // 修改目前的 Ray, 繼續迭代
-            currentRay = specularRay;
-            extraHitInfo = specularHit;
+                stack[len].extraHitInfo = Trace(specularRay, INF);
+                stack[len].InDir = specularRay.dir;
+                stack[len].RayPower = Ks;
+                stack[len].Depth = top.Depth + 1;
+                ++len;
+            }
+            if (length(Kt) > EPSILON && len < MAX_DEPTH)
+            {
+                float refractFactor = _Materials[top.extraHitInfo.hitMesh].Kt.w;
+                bool isSolid = _Materials[top.extraHitInfo.hitMesh].isSolid == 1;
+                
+                if (isSolid && HitTheBackSide(top.extraHitInfo))
+                    refractFactor = 1.f / refractFactor;
+                
+                Ray transRay;
+                transRay.origin = top.extraHitInfo.hitInfo.position - N * EPSILON;
+                transRay.dir = refract(top.InDir, N, refractFactor);
+                // 從介質內射向空氣可能會發生全反射
+                if (all(transRay.dir == float3(0, 0, 0)))
+                {
+                    transRay.dir = reflect(top.InDir, N);
+                    transRay.origin = top.extraHitInfo.hitInfo.position + N * EPSILON;
+                }
+                
+                stack[len].extraHitInfo = Trace(transRay, INF);
+                stack[len].InDir = transRay.dir;
+                stack[len].RayPower = Kt;
+                stack[len].Depth = top.Depth + 1;
+                ++len;
+            }
         }
-        else
-            break;
     }
 
     return color;

@@ -41,6 +41,9 @@ public class RayTracer_ShaderVer : MonoBehaviour
     [Tooltip("全域調整 Bump Map 的使用")]
     public bool UseBumpMap = true;
 
+    [Tooltip("如果開啟的話，只要能反射和折射（材質同時設置 Ks 和 Kt），那會依據入射光線角度調整 Ks 的值，並將 Kt = 1 - Ks")]
+    public bool UseFresnel = true;
+
     [Tooltip("")]
     public bool DoSSAO = false;
 
@@ -190,6 +193,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
         RayTracingShader.SetMatrix("_CameraToWorld", _camera.cameraToWorldMatrix);
         RayTracingShader.SetVector("_ScreenSize", new Vector2(Screen.width, Screen.height));
         RayTracingShader.SetBool("_GlobalUseBumpMap", UseBumpMap);
+        RayTracingShader.SetBool("_GlobalUseFresnel", UseFresnel);
     }
 
     void OnGUI()

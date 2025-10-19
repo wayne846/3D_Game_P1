@@ -2,12 +2,20 @@ Shader "Custom/LocalShading"
 {
      Properties
     {
+        [Header(Diffuse)]
         _Color("Diffuse Color", Color) = (1,1,1,1)
         _MainTex("Texture", 2D) = "white" {}
         _UseTexture("Whether to use texture", Range(0, 1)) = 0
+        
+        [Header(Reflect)]
         _SpecColor("Specular Color", Color) = (1,1,1,1)
         _Shininess("Shininess", Range(1,256)) = 32
+        
+        [Header(Refract)]
+        _TransmissiveColor("Transmissive Color (Not used in local shading", Color) = (0, 0, 0, 1)
+        _IsSolid("Is Solid (Not used in local shading)", Range(0, 1)) = 0
 
+        [Header(Bump Map)]
         _BumpMap("Bump Map", 2D) = "black" {}
         _UseBumpMap("Whether to use bump map", Range(0, 1)) = 0
     }

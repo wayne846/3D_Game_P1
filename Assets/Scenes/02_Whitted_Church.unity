@@ -155,12 +155,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0.695, g: 0.356, b: 0.245, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0.81, g: 0.81, b: 0.81, a: 0}
   m_BuildTextureStacks: []
 --- !u!1 &116291392
 GameObject:
@@ -943,12 +946,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0.898, g: 0.898, b: 0.898, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!21 &244790853
 Material:
@@ -983,12 +989,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1.5
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
-    - _Color: {r: 0.6, g: 0.95, b: 0.95, a: 1}
-    - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _Color: {r: 0, g: 0, b: 0, a: 1}
+    - _SpecColor: {r: 0.08, g: 0.08, b: 0.08, a: 1}
+    - _TransmissiveColor: {r: 0.92, g: 0.92, b: 0.92, a: 0.6509804}
   m_BuildTextureStacks: []
 --- !u!21 &245550139
 Material:
@@ -1023,12 +1032,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0, g: 0, b: 0, a: 1}
-    - _SpecColor: {r: 1.11, g: 1.11, b: 1.11, a: 1}
+    - _SpecColor: {r: 0.08, g: 0.08, b: 0.08, a: 1}
+    - _TransmissiveColor: {r: 0.92, g: 0.92, b: 0.92, a: 0.6}
   m_BuildTextureStacks: []
 --- !u!21 &268262216
 Material:
@@ -1063,12 +1075,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 1, g: 1, b: 1, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!1 &313117172
 GameObject:
@@ -1679,12 +1694,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0.873, g: 0.871, b: 0.84, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!43 &491028370
 Mesh:
@@ -2320,12 +2338,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0.873, g: 0.871, b: 0.84, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!43 &643512096
 Mesh:
@@ -2525,12 +2546,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0.81, g: 0.81, b: 0.81, a: 0}
   m_BuildTextureStacks: []
 --- !u!1 &656429572
 GameObject:
@@ -2830,12 +2854,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 0
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0.1, g: 0.1, b: 0.1, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!43 &700069782
 Mesh:
@@ -3035,12 +3062,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 1
     - _UseTexture: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!21 &739322005
 Material:
@@ -3075,12 +3105,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0.873, g: 0.871, b: 0.84, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!43 &740603513
 Mesh:
@@ -3721,12 +3754,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0.81, g: 0.81, b: 0.81, a: 0}
   m_BuildTextureStacks: []
 --- !u!21 &883510927
 Material:
@@ -3761,12 +3797,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0.873, g: 0.871, b: 0.84, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!1 &918750947
 GameObject:
@@ -4101,12 +4140,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 1
     - _UseTexture: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!1 &961739749
 GameObject:
@@ -4279,6 +4321,7 @@ MonoBehaviour:
   RayTracingShader: {fileID: 7200000, guid: 1dd627e3f3dbe0e4da0ab6531655caa3, type: 3}
   OnlyRenderOneTime: 0
   UseBumpMap: 1
+  UseFresnel: 1
   DoSSAO: 0
   AoParameters:
     _AOUse: 0
@@ -4375,12 +4418,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0.873, g: 0.871, b: 0.84, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!43 &1016116326
 Mesh:
@@ -4595,6 +4641,112 @@ Texture2D:
     offset: 0
     size: 0
     path: 
+--- !u!1 &1034449816
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1034449820}
+  - component: {fileID: 1034449819}
+  - component: {fileID: 1034449818}
+  - component: {fileID: 1034449817}
+  m_Layer: 0
+  m_Name: Quad
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!64 &1034449817
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1034449816}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &1034449818
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1034449816}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: 69ece2d935f58f94ba81bef5adc10571, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &1034449819
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1034449816}
+  m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!4 &1034449820
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1034449816}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: 0.09, y: 0.77, z: -3.9}
+  m_LocalScale: {x: 7.9522314, y: 11.511243, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
 --- !u!21 &1036508160
 Material:
   serializedVersion: 8
@@ -4628,12 +4780,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 0
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 1
     - _UseTexture: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!1 &1064223589
 GameObject:
@@ -4751,12 +4906,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 0
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 1, g: 1, b: 1, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!28 &1231298050
 Texture2D:
@@ -6228,12 +6386,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 0
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0.8, g: 0.1, b: 0.1, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!43 &1667586460
 Mesh:
@@ -7154,12 +7315,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0.31, g: 0.196, b: 0.176, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!43 &1898552496
 Mesh:
@@ -7410,12 +7574,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0.81, g: 0.81, b: 0.81, a: 0}
   m_BuildTextureStacks: []
 --- !u!43 &1956294732
 Mesh:
@@ -7698,12 +7865,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _IsSolid: 1
+    - _RefractFactor: 1
     - _Shininess: 32
     - _UseBumpMap: 0
     - _UseTexture: 0
     m_Colors:
     - _Color: {r: 0.873, g: 0.871, b: 0.84, a: 1}
     - _SpecColor: {r: 0, g: 0, b: 0, a: 1}
+    - _TransmissiveColor: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
 --- !u!1 &2083278910
 GameObject:
@@ -8034,3 +8204,4 @@ SceneRoots:
   - {fileID: 355506581}
   - {fileID: 1901780556}
   - {fileID: 404250803}
+  - {fileID: 1034449820}

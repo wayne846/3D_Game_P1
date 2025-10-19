@@ -27,8 +27,9 @@ public class MeshToCompute : MonoBehaviour
     {
         public float4 Kd; // diffuse,      (r, g, b, 0) or (TextureIndex, *, *, -1), 特定顏色 or 從特定 texture sample
         public float4 Ks; // specular,     (r, g, b, 0)
-        public float4 Kt; // transmission, (r, g, b, 0)
+        public float4 Kt; // transmission, (r, g, b, 空氣的折射率 / 介質的折射率)
         public int bumpMapLayer;    // -1 -> 沒有 bump map, >= 0 -> Textures[bumpMapLayer] 是 bump map
+        public int isSolid; // 0 or 1，是不是固體，如果是的話則 Ray 從裡面往外射時折射率會取倒數
     }
 
     // GPU buffers
@@ -84,8 +85,9 @@ public class MeshToCompute : MonoBehaviour
                 // Kd / Ks / Kt
                 Vector4 Kd = new Vector4(1,1,1,0);
                 Vector4 Ks = new Vector4(0,0,0,0);
-                Vector4 Kt = new Vector4(0,0,0,0);
+                Vector4 Kt = new Vector4(0,0,0,1);
                 int bumpMapLayer = -1;
+                int isSolid = 0;
 
                 var mat = (sm < mats.Length) ? mats[sm] : null;
                 if (mat)
@@ -99,6 +101,9 @@ public class MeshToCompute : MonoBehaviour
                                 : 0f;
 
                     var specCol = mat.HasProperty("_SpecColor") ? mat.GetColor("_SpecColor") : Color.black;
+
+                    var transmissive = mat.HasProperty("_TransmissiveColor") ? mat.GetColor("_TransmissiveColor")
+                                     : Color.black;
 
                     Texture texMain = null, texBump = null;
                     if (mat.HasProperty("_BaseMap")) texMain = mat.GetTexture("_BaseMap");
@@ -119,11 +124,15 @@ public class MeshToCompute : MonoBehaviour
 
                     Ks = new Vector4(specCol.r, specCol.g, specCol.b, Mathf.Clamp01(smooth));
 
+                    Kt = new Vector4(transmissive.r, transmissive.g, transmissive.b, transmissive.a);
+
                     if (texBump != null) bumpMapLayer = layerMap[texBump];
+
+                    if (mat.HasProperty("_IsSolid")) isSolid = Mathf.FloorToInt(mat.GetFloat("_IsSolid"));
                 }
 
                 materialList.Add(new MaterialGPU {
-                    Kd = Kd, Ks = Ks, Kt = Kt, bumpMapLayer = bumpMapLayer
+                    Kd = Kd, Ks = Ks, Kt = Kt, bumpMapLayer = bumpMapLayer, isSolid = isSolid
                 });
             }
         }
