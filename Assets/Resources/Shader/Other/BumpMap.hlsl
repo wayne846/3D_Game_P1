@@ -2,6 +2,8 @@ int _UseBumpMap;
 Texture2D _BumpMap;
 SamplerState sampler_BumpMap;
 
+#include "PerlinNoise.hlsl"
+
 /**
 給定一個 uv 座標，從 _BumpMap 取出相鄰區域的高度變化並推測 Normal
 這函數會依據原始的 Normal 計算出 TBN space 轉 world space 的旋轉，在將取樣出來的 Normal 轉 world space
@@ -14,10 +16,20 @@ float3 GetBumpMapNormal(float2 uv, float3 oldNormal)
         int width, height;
     _BumpMap.GetDimensions(width, height);
     
-    float du = 1.f / height, dv = 1.f / width;
-    float CenterHeight = _BumpMap.SampleLevel(sampler_BumpMap, uv, 0);
-    float duHeight = _BumpMap.SampleLevel(sampler_BumpMap, uv + float2(du, 0), 0);
-    float dvHeight = _BumpMap.SampleLevel(sampler_BumpMap, uv + float2(0, dv), 0);
+    float CenterHeight, duHeight, dvHeight;
+    if (_UseBumpMap == 1)
+    {
+        float du = 1.f / height, dv = 1.f / width;
+        CenterHeight = _BumpMap.SampleLevel(sampler_BumpMap, uv, 0);
+        duHeight = _BumpMap.SampleLevel(sampler_BumpMap, uv + float2(du, 0), 0);
+        dvHeight = _BumpMap.SampleLevel(sampler_BumpMap, uv + float2(0, dv), 0);
+    }
+    else
+    {
+        CenterHeight = perlinNoise(uv);
+        duHeight = perlinNoise(uv + float2(1, 0));
+        dvHeight = perlinNoise(uv + float2(0, 1));
+    }
 
     float3 normalInTBN = normalize(cross(float3(1, 0, duHeight - CenterHeight), float3(0, 1, dvHeight - CenterHeight)));
     

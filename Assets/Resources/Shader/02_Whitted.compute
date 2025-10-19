@@ -131,7 +131,7 @@ float3 Shade(Ray currentRay, ExtraHitInfo extraHitInfo)
         
             // 計算 Phong Shading
             // Diffuse
-            float NdotL = abs(dot(N, shadowRay.dir));
+            float NdotL = max(dot(N, shadowRay.dir), 0);
             float3 diffuse = Kd * lightColor * NdotL;
                 
             // Geometry Term
