@@ -91,4 +91,10 @@ public class UIManager : MonoBehaviour
                 tracer.ExportTexture();
         }
     }
+
+    private void OnGUI()
+    {
+        GUI.skin.label.fontSize = 30;
+        GUI.Label(new Rect(10, Screen.height - 50, Screen.width, 50), $"{Screen.width} * {Screen.height}, FPS: {1f / Time.unscaledDeltaTime}");
+    }
 }
