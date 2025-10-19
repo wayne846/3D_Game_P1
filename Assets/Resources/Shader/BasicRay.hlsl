@@ -48,6 +48,23 @@ Ray CreateCameraRay(float x, float y)
     return r;
 }
 
+// 生成 Jittered Ray //////////////////////////////////////////////
+Ray CreateCameraRayJittered(float x, float y, float2 subpixelOffset)
+{
+    Ray r;
+    r.origin = mul(_CameraToWorld, float4(0, 0, 0, 1)).xyz;
+
+    // 加上抖動偏移
+    float ndcX = (2.0f * (x + 0.5f + subpixelOffset.x) / _ScreenSize.x) - 1.0f;
+    float ndcY = (2.0f * (y + 0.5f + subpixelOffset.y) / _ScreenSize.y) - 1.0f;
+
+    float3 viewSpaceDir = mul(_CameraProjectionInverse, float4(ndcX, ndcY, UNITY_NEAR_CLIP_VALUE, 1.0f)).xyz;
+    r.dir = mul(_CameraToWorld, float4(viewSpaceDir, 0.0f)).xyz;
+    r.dir = normalize(r.dir);
+
+    return r;
+}
+
 // Intersection /////////////////////////////////////////////
 
 HitInfo CreateEmptyHitInfo()

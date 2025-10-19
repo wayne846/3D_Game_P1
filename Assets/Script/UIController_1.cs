@@ -12,7 +12,18 @@ public class UIController_1 : MonoBehaviour
     [SerializeField] private TextMeshProUGUI aoSampleText = null;
     [SerializeField] private TextMeshProUGUI aoRadiusText = null;
     [SerializeField] private TextMeshProUGUI aoIntensityText = null;
+    [SerializeField] private TextMeshProUGUI aoPanelText = null;
+    [SerializeField] private TextMeshProUGUI jssPanelText = null;
+    [SerializeField] private TextMeshProUGUI jssSPPText = null;
     public Slider aoIntensitySlider;
+    public Slider jssSppSlider;
+    public GameObject aoPanel;
+    public GameObject jssPanel;
+    void Start()
+    {
+        aoPanel.SetActive(false);
+        jssPanel.SetActive(false);
+    }
 
     public void ClickRenderButton()
     {
@@ -46,11 +57,16 @@ public class UIController_1 : MonoBehaviour
 
     public void ClickDecreaseAORadiusButton()
     {
-        if(rayTracer.AoParameters._AORadius > 0.01)
+        if (rayTracer.AoParameters._AORadius > 0.01)
         {
             rayTracer.AoParameters._AORadius /= 2;
         }
         aoRadiusText.text = rayTracer.AoParameters._AORadius.ToString("F2");
+    }
+    public void UpdateIntensity()
+    {
+        rayTracer.AoParameters._AOIntensity = aoIntensitySlider.value;
+        aoIntensityText.text = aoIntensitySlider.value.ToString("F2");
     }
 
     public void ClickSSAOToggle(bool b)
@@ -62,15 +78,46 @@ public class UIController_1 : MonoBehaviour
     {
         rayTracer.UseBumpMap = b;
     }
-
-    public void UpdateIntensity()
+    public void ClickJssToggle(bool b)
     {
-        rayTracer.AoParameters._AOIntensity = aoIntensitySlider.value;
-        aoIntensityText.text = aoIntensitySlider.value.ToString("F2");
+        rayTracer.jssParameters._JitterOn = b ? 1 : 0;
     }
+    public void UpdateSPP()
+    {
+        rayTracer.jssParameters._SPP = (int)jssSppSlider.value;
+        jssSPPText.text = jssSppSlider.value.ToString();
+    }
+
+    
 
     public void ClickBackButton()
     {
         SceneManager.LoadScene("Menu");
+    }
+    public void ClickOpenAOPanelButton()
+    {
+        if (aoPanel.activeSelf)
+        {
+            aoPanel.SetActive(false);
+            aoPanelText.text = ">";
+        }
+        else
+        {
+            aoPanel.SetActive(true);
+            aoPanelText.text = "<";
+        }
+    }
+    public void ClickOpenJSSPanelButton()
+    {
+        if (jssPanel.activeSelf)
+        {
+            jssPanel.SetActive(false);
+            jssPanelText.text = ">";
+        }
+        else
+        {
+            jssPanel.SetActive(true);
+            jssPanelText.text = "<";
+        }
     }
 }
