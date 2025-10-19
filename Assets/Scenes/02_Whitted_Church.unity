@@ -5184,6 +5184,7 @@ MonoBehaviour:
   OnlyRenderOneTime: 0
   UseBumpMap: 1
   UseFresnel: 1
+  REFLECT_REFRACT_THRESH: 0.05
   DoSSAO: 0
   AoParameters:
     _AOUse: 0

@@ -53,6 +53,8 @@ public class RayTracer_ShaderVer : MonoBehaviour
     [Tooltip("如果開啟的話，只要能反射和折射（材質同時設置 Ks 和 Kt），那會依據入射光線角度調整 Ks 的值，並將 Kt = 1 - Ks")]
     public bool UseFresnel = true;
 
+    public float REFLECT_REFRACT_THRESH = 0.05f;
+
     [Tooltip("")]
     public bool DoSSAO = false;
 
@@ -207,6 +209,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
         RayTracingShader.SetVector("_ScreenSize", new Vector2(Screen.width, Screen.height));
         RayTracingShader.SetBool("_GlobalUseBumpMap", UseBumpMap);
         RayTracingShader.SetBool("_GlobalUseFresnel", UseFresnel);
+        RayTracingShader.SetFloat("REFLECT_REFRACT_THRESH", REFLECT_REFRACT_THRESH);
     }
 
     void OnGUI()
