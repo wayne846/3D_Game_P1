@@ -55,7 +55,7 @@ void TraceShadowRay(Ray shadowRay, float shadowRayDistance, inout float3 lightCo
             if (HitTheBackSide(extraHitInfo))
             {
                 float dist = distance(EnterSolidPos, extraHitInfo.hitInfo.position);
-                lightColor *= 1 / pow(10, dist);
+                lightColor *= 1 / pow(10, dist * 1.5);
             }
             else
             {
