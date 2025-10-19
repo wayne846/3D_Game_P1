@@ -39,7 +39,7 @@ public class RayTracer_ShaderVer : MonoBehaviour
     Camera _camera;          ///< 記錄相機 Component
     bool _firstRender;
     int _kernel;
-    int _savedShow = 0;
+    float _savedShow = 0;
 
     [Tooltip("使用第 0 個 kernel 進行渲染，RenderTexture 會綁定在 Result 變數")]
     public ComputeShader RayTracingShader;
@@ -83,11 +83,11 @@ public class RayTracer_ShaderVer : MonoBehaviour
     [ContextMenu("Export Ray Tracing Result")]
     public void ExportTexture()
     {
-        _savedShow = 10;
         if (!Application.isPlaying)
             return;
 
-        string FileName = DateTime.Now.ToString("yy-MM-dd_HH-mm") + "_ray.exr";
+        _savedShow = 1;
+        string FileName = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-fff") + "_ray.exr";
         Debug.Log(FileName);
 
         var prev_rt = RenderTexture.active;
@@ -211,12 +211,14 @@ public class RayTracer_ShaderVer : MonoBehaviour
 
     void OnGUI()
     {
+        GUI.skin.label.fontSize = 30;
+
         if (OnlyRenderOneTime)
-            GUI.Label(new Rect(10, 10, 300, 30), "只渲染一幀");
+            GUI.Label(new Rect(10, 10, Screen.width, 50), "只渲染一幀");
         if (_savedShow > 0)
         {
-            GUI.Label(new Rect(10, 40, 300, 30), "已儲存截圖");
-            --_savedShow;
+            GUI.Label(new Rect(10, 60, Screen.width, 50), "已儲存截圖");
+            _savedShow -= Time.unscaledDeltaTime;
         }
     }
 }
